@@ -3,7 +3,7 @@ from backend.apps.rag.c_embeddings import get_embeddings
 from backend.apps.rag.b_splitter import text_splitter
 from backend.apps.rag.a_loader import load_document
 
-docs = load_document(r"C:\Users\Admin\OneDrive\Documents\Person\Personal Projects\Aixia Project\backend\apps\documents\VIÑAS_CV_2026.pdf")
+docs = load_document(r"/backend/apps/documents/VINAS_CV_2026.pdf")
 chunks = text_splitter(docs)
 embedder = get_embeddings()
 

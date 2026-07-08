@@ -1,6 +1,6 @@
 from langchain_ollama import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
-from backend.apps.rag.e_prompts import context_prompt
+from .e_prompts import context_prompt
 
 def get_llm():
     return ChatOllama(

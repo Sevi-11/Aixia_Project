@@ -22,3 +22,6 @@ def search(vectorstore, query: str, k: int=3):
     results =vectorstore.similarity_search(query, k=k)
     return results
 
+def add_documents(vectorstore, chunks):
+    vectorstore.add_documents(chunks)
+    return vectorstore

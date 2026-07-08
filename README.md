@@ -29,22 +29,22 @@ Ask it something like *"What machine learning experience do you have?"* and it r
 ## Architecture
 
 ```
-┌─────────────┐      ┌──────────────────┐      ┌─────────────────────┐
-│   React     │─────▶│   Django REST    │─────▶│   rag/ (LangChain)   │
-│  (chat UI)  │◀─────│    Framework      │◀─────│  load → split →      │
-└─────────────┘      └──────────────────┘      │  embed → retrieve →  │
-                             │                   │  generate            │
-                             ▼                   └──────────┬──────────┘
-                      ┌─────────────┐                        │
-                      │ PostgreSQL  │                         ▼
-                      │ (documents, │                 ┌───────────────┐
-                      │  sessions,  │                 │ Chroma (local) │
-                      │  messages)  │                 └───────────────┘
-                      └─────────────┘                        │
-                                                              ▼
-                                                     ┌─────────────────┐
-                                                     │ Ollama qwen3.5:9b│
-                                                     └─────────────────┘
+┌─────────────┐      ┌──────────────────┐       ┌─────────────────────┐
+│   React     │─────▶│   Django REST    │─────▶ │   rag/ (LangChain)  │
+│  (chat UI)  │◀─────│    Framework     │◀───── │  load → split →     │
+└─────────────┘      └──────────────────┘       │  embed → retrieve → │
+                             │                  │  generate           │
+                             ▼                  └──────────┬──────────┘
+                      ┌─────────────┐                      │
+                      │ PostgreSQL  │                      ▼
+                      │ (documents, │              ┌───────────────┐
+                      │  sessions,  │              │ Chroma (local)│
+                      │  messages)  │              └───────────────┘
+                      └─────────────┘                      │
+                                                           ▼
+                                                   ┌─────────────────┐
+                                                   │Ollama qwen3.5:9b│
+                                                   └─────────────────┘
 ```
 
 **Two parallel data paths, kept intentionally decoupled:**

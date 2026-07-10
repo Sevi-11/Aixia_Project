@@ -176,7 +176,7 @@ A few choices worth calling out (fuller reasoning to live in `docs/adr/` as the 
 - [x] Django + PostgreSQL integration
 - [x] Document upload + ingestion API
 - [x] Session-aware chat API
-- [ ] Multi-turn conversational context (follow-up questions aware of chat history)
+- [x] Multi-turn conversational context (follow-up questions aware of chat history)
 - [ ] Next frontend
 - [ ] QA suite: pytest, Playwright E2E, Locust load testing
 - [ ] RAGAS-based retrieval/faithfulness evaluation

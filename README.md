@@ -30,8 +30,8 @@ Ask it something like *"What machine learning experience do you have?"* and it r
 
 ```
 ┌─────────────┐      ┌──────────────────┐       ┌─────────────────────┐
-│   Next.JS   │────▶│   Django REST    │─────▶ │   rag/ (LangChain)  │
-│  (chat UI)  │◀────│    Framework     │◀───── │  load → split →     │
+│   Next.JS   │────▶ │   Django REST    │─────▶│   rag/ (LangChain)  │
+│  (chat UI)  │◀──── │    Framework     │◀─────│  load → split →     │
 └─────────────┘      └──────────────────┘       │  embed → retrieve → │
                              │                  │  generate           │
                              ▼                  └──────────┬──────────┘

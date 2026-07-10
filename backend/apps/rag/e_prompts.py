@@ -4,6 +4,9 @@ context_prompt = ChatPromptTemplate.from_template("""
     You are answering questions about a person's background, using ONLY the context provided below.
 If the answer is not contained in the context, say "I don't have that information" — do not guess or make anything up.
 
+Conversation so far:
+{history}
+
 Context:
 {context}
 

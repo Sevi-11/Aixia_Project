@@ -15,23 +15,23 @@ Ask it something like *"What machine learning experience do you have?"* and it r
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React.js (Vite) |
-| Backend | Python, Django, Django REST Framework |
-| Database | PostgreSQL |
-| RAG orchestration | LangChain |
+| Layer | Technology                                                               |
+|---|--------------------------------------------------------------------------|
+| Frontend | Next.js |                                                           |
+| Backend | Python, Django, Django REST Framework                                    |
+| Database | PostgreSQL                                                               |
+| RAG orchestration | LangChain                                                                |
 | Embeddings | `sentence-transformers` (`all-MiniLM-L6-v2`), local, no API key required |
-| Vector store | Chroma (persisted locally) |
-| LLM | Ollama, running `qwen3.5:9b` |
-| QA / Testing | pytest, Playwright, Locust, RAGAS |
+| Vector store | Chroma (persisted locally)                                               |
+| LLM | Ollama, running `qwen3.5:9b`                                             |
+| QA / Testing | pytest, Playwright, Locust, RAGAS                                        |
 
 ## Architecture
 
 ```
 ┌─────────────┐      ┌──────────────────┐       ┌─────────────────────┐
-│   React     │─────▶│   Django REST    │─────▶ │   rag/ (LangChain)  │
-│  (chat UI)  │◀─────│    Framework     │◀───── │  load → split →     │
+│   Next.JS   │────▶│   Django REST    │─────▶ │   rag/ (LangChain)  │
+│  (chat UI)  │◀────│    Framework     │◀───── │  load → split →     │
 └─────────────┘      └──────────────────┘       │  embed → retrieve → │
                              │                  │  generate           │
                              ▼                  └──────────┬──────────┘
@@ -79,7 +79,7 @@ backend/
 ├── media/                    # Uploaded files (gitignored)
 └── manage.py
 
-frontend/                    # React chat UI (in progress)
+frontend/                    # Next chat UI (in progress)
 qa/                           # Playwright, Locust, RAGAS (planned)
 docs/                          # PRD, architecture notes, ADRs (planned)
 ```
@@ -177,7 +177,7 @@ A few choices worth calling out (fuller reasoning to live in `docs/adr/` as the 
 - [x] Document upload + ingestion API
 - [x] Session-aware chat API
 - [ ] Multi-turn conversational context (follow-up questions aware of chat history)
-- [ ] React frontend
+- [ ] Next frontend
 - [ ] QA suite: pytest, Playwright E2E, Locust load testing
 - [ ] RAGAS-based retrieval/faithfulness evaluation
 - [ ] Free-tier deployment (frontend + backend + hosted Postgres w/ pgvector)

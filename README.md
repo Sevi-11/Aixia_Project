@@ -79,7 +79,13 @@ backend/
 ├── media/                    # Uploaded files (gitignored)
 └── manage.py
 
-frontend/                    # Next chat UI (in progress)
+frontend/
+├── app/
+│   ├── layout.js
+│   └── page.js              # renders ChatWindow
+├── components/
+│   └── ChatWindow.js          # chat UI: message list, input, sources display
+└── package.json
 qa/                           # Playwright, Locust, RAGAS (planned)
 docs/                          # PRD, architecture notes, ADRs (planned)
 ```
@@ -132,6 +138,15 @@ docs/                          # PRD, architecture notes, ADRs (planned)
    ```bash
    python manage.py runserver
    ```
+7. **Enable CORS for local frontend access** — install and configure `django-cors-headers` (see Design Decisions below).
+
+8. **Start the frontend** (in a separate terminal):
+```bash
+   cd frontend
+   npm install
+   npm run dev
+```
+   Visit `http://localhost:3000`.
 
 ## Usage
 
@@ -169,6 +184,7 @@ A few choices worth calling out (fuller reasoning to live in `docs/adr/` as the 
 - **Local embeddings (`all-MiniLM-L6-v2`) over an API-based embedding service** — free, no external calls, small enough to not compete with the LLM for resources.
 - **`rag/` kept fully decoupled from Django** — the retrieval/generation logic has no framework dependency, so it can be tested and iterated on independently of the web layer.
 - **Local LLM (Ollama) for development** — for any future public-facing demo deployment, local Ollama won't be reachable, so a free-tier hosted LLM API would be swapped in for that specific deployment while local development continues to use Ollama.
+- **CORS via `django-cors-headers`** — Next.js dev server (`localhost:3000`) and Django (`127.0.0.1:8000`) are different origins; the browser blocks cross-origin requests by default, so `CORS_ALLOWED_ORIGINS` explicitly permits the frontend's origin.
 
 ## Roadmap
 
@@ -177,7 +193,7 @@ A few choices worth calling out (fuller reasoning to live in `docs/adr/` as the 
 - [x] Document upload + ingestion API
 - [x] Session-aware chat API
 - [x] Multi-turn conversational context (follow-up questions aware of chat history)
-- [ ] Next frontend
+- [x] Next.js frontend
 - [ ] QA suite: pytest, Playwright E2E, Locust load testing
 - [ ] RAGAS-based retrieval/faithfulness evaluation
 - [ ] Free-tier deployment (frontend + backend + hosted Postgres w/ pgvector)

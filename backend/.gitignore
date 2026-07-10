@@ -1,0 +1,17 @@
+# secrets
+.env
+
+# python
+venv/
+__pycache__/
+*.pyc
+
+# django
+db.sqlite3
+media/
+
+# vector store (regenerable from source docs, don't commit binary index files)
+data/chroma_db/
+
+# IDE
+.idea/

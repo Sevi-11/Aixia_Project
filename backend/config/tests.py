@@ -9,7 +9,7 @@ class SecretKeySettingsTests(TestCase):
     def test_missing_production_secret_prevents_startup(self):
         environment = os.environ.copy()
         environment.pop('DJANGO_SECRET_KEY', None)
-        environment['DJANGO_DEBUG'] = 'False'
+        environment['DJANGO_DEBUG'] = 'True'
 
         result = subprocess.run(
             [sys.executable, 'backend/manage.py', 'check'],

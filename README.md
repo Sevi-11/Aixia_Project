@@ -152,7 +152,7 @@ docs/                          # PRD, architecture notes, ADRs (planned)
 
 Copy `backend/.env.example` to `backend/.env` and set only the values needed for your environment. The example file is a template and must not contain real secrets.
 
-For local development, use the split PostgreSQL variables `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT` when `DATABASE_URL` is unset. Local development also uses `LLM_PROVIDER=ollama` with `OLLAMA_BASE_URL` and `OLLAMA_MODEL`; `NEXT_PUBLIC_API_ORIGIN` should point to the local Django API.
+For local development, set `DJANGO_DEBUG=True` to opt into the local-only development secret fallback, then use the split PostgreSQL variables `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT` when `DATABASE_URL` is unset. Local development also uses `LLM_PROVIDER=ollama` with `OLLAMA_BASE_URL` and `OLLAMA_MODEL`; `NEXT_PUBLIC_API_ORIGIN` should point to the local Django API.
 
 For Render, set `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=False`, `DATABASE_URL`, `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `LLM_PROVIDER=groq`, `GROQ_API_KEY`, and `GROQ_MODEL`. For Vercel, set `NEXT_PUBLIC_API_ORIGIN` to the Render API URL. Comma-separate multiple hostnames or allowed frontend origins in `ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS`.
 

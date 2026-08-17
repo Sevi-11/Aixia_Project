@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from django.core import signing
 
 from .models import ChatSession, ChatMessage
 from .a_serializers import ChatRequestSerializer, ChatMessageSerializer
@@ -10,14 +11,29 @@ from rag.d_vectorstore import load_vectorstore
 from rag.f_chains import answer_question
 
 class ChatView(APIView):
+    def get(self, request):
+        return Response(
+            {'error': 'Chat history requires authenticated ownership.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     def post(self, request):
         serializer = ChatRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         session_id = serializer.validated_data.get('session_id')
+        session_token = serializer.validated_data.get('session_token')
         question = serializer.validated_data['question']
 
         if session_id:
+            if not session_token:
+                return Response({'error': 'Session token required'}, status=status.HTTP_403_FORBIDDEN)
+            try:
+                signed_session_id = signing.loads(session_token, salt='aixia-chat-session', max_age=60 * 60 * 24 * 30)
+            except signing.BadSignature:
+                return Response({'error': 'Invalid session token'}, status=status.HTTP_403_FORBIDDEN)
+            if signed_session_id != session_id:
+                return Response({'error': 'Invalid session token'}, status=status.HTTP_403_FORBIDDEN)
             session = ChatSession.objects.filter(id=session_id).first()
             if not session:
                 return Response({'error': 'Session not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -39,6 +55,7 @@ class ChatView(APIView):
 
         return Response({
             "session_id": session.id,
+            "session_token": signing.dumps(session.id, salt='aixia-chat-session'),
             "answer": answer,
             "sources": [
                 {

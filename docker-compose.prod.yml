@@ -1,0 +1,21 @@
+services:
+  db:
+    restart: always
+
+  backend:
+    restart: always
+    environment:
+      DJANGO_DEBUG: "False"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+    volumes:
+      - media:/app/media
+      - chroma:/app/data
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
+
+  frontend:
+    restart: always
+    build:
+      context: ./frontend

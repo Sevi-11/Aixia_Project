@@ -1,0 +1,9 @@
+backend/data/
+backend/media/
+backend/staticfiles/
+frontend/node_modules
+frontend/.next
+.git
+.idea
+.superpowers
+.air

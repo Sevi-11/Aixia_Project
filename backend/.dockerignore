@@ -1,0 +1,8 @@
+.env
+__pycache__
+*.pyc
+media/
+data/chroma_db/
+.git
+.idea
+staticfiles/

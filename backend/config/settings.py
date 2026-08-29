@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from secrets import token_urlsafe
+import socket
 import sys
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -33,6 +34,17 @@ def env_bool(name, default=False):
 
 def env_list(name, default=''):
     return [item.strip() for item in os.getenv(name, default).split(',') if item.strip()]
+
+
+def get_lan_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('10.255.255.255', 1))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return None
 
 
 def database_from_url(database_url):
@@ -64,7 +76,9 @@ if not SECRET_KEY:
     else:
         raise RuntimeError('DJANGO_SECRET_KEY must be set when DJANGO_DEBUG=False.')
 
-ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1,192.168.1.6')
+_LAN_IP = get_lan_ip()
+_extra_hosts = [f'{_LAN_IP}', f'{_LAN_IP}:3000'] if _LAN_IP else []
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1,aixia') + _extra_hosts
 
 
 # Application definition
@@ -86,6 +100,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -94,10 +109,24 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+CORS_ALLOW_ALL_ORIGINS = env_bool('CORS_ALLOW_ALL_ORIGINS', default=DEBUG)
 CORS_ALLOWED_ORIGINS = env_list(
     'CORS_ALLOWED_ORIGINS',
-    'http://localhost:3000,http://127.0.0.1:3000,http://192.168.1.6:3000',
+    'http://localhost:3000,http://127.0.0.1:3000',
 )
+if _LAN_IP:
+    CORS_ALLOWED_ORIGINS += [
+        f'http://{_LAN_IP}:3000',
+        f'http://{_LAN_IP}',
+    ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '30/min',
+    },
+}
 
 ROOT_URLCONF = 'config.urls'
 
@@ -176,3 +205,4 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')

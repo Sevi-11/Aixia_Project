@@ -147,7 +147,18 @@ if RENDER_HOSTNAME:
 # HTTPS. Without it request.is_secure() is always False, which makes the
 # secure-cookie and redirect settings below either inert or an infinite loop.
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-USE_X_FORWARDED_HOST = True
+
+# USE_X_FORWARDED_HOST is deliberately NOT enabled.
+#
+# The frontend proxies /api/* to this service, and that proxy forwards
+# X-Forwarded-Host carrying the *frontend's* domain. Trusting it would make
+# Django validate that name against ALLOWED_HOSTS instead of its own, and
+# reject every proxied request with a DisallowedHost 400.
+#
+# It is also not a trustworthy header here: Render passes a client-supplied
+# X-Forwarded-Host straight through rather than overwriting it, so any caller
+# can set it to anything. The real Host header is what actually routed the
+# request to this service, which makes it both correct and unspoofable.
 
 if not DEBUG:
     SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', default=True)

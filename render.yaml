@@ -10,9 +10,12 @@ services:
     name: aixia-backend
     runtime: docker
     plan: free
-    # Same region as the Supabase project. Cross-region adds a round trip to
-    # every query, and on a free tier that latency is the whole budget.
-    region: oregon
+    # Must match the Supabase project's region (ap-southeast-1 = Singapore).
+    # A chat request makes several database round trips -- session lookup,
+    # message insert, vector search, message insert -- so a cross-Pacific split
+    # would add roughly 180ms to each one. Render cannot change a service's
+    # region after creation, so this has to be right the first time.
+    region: singapore
 
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend

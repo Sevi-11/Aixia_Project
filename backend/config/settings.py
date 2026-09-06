@@ -305,3 +305,50 @@ STORAGES = {
         'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
     },
 }
+
+
+# Logging
+# ---------------------------------------------------------------------------
+# Django's built-in console handler carries a require_debug_true filter, and
+# its only other handler mails ADMINS. With DEBUG=False and no mail configured
+# -- i.e. in production -- that means exception tracebacks are written
+# absolutely nowhere: a 500 shows up in the platform log as silence.
+#
+# So the console handler here is deliberately unfiltered. On a PaaS, stdout is
+# the log: the platform captures it, and anything not written there is lost.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '{levelname} {asctime} {name} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': os.getenv('LOG_LEVEL', 'INFO'),
+    },
+    'loggers': {
+        # 5xx with full traceback, and 4xx at WARNING.
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        # Where DisallowedHost lands. Django answers a bad Host with a bare 400
+        # and no explanation, so without this the most common production
+        # misconfiguration is also the least diagnosable one.
+        'django.security': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+}

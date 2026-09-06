@@ -34,7 +34,14 @@ const nextConfig = {
     // strips trailing slashes while matching, so ":path*" is always slashless;
     // every Django API route ends in a slash, and APPEND_SLASH cannot fix a
     // POST (it would have to drop the body), so it 500s instead. Re-add it here.
-    return [{ source: "/api/:path*", destination: `${BACKEND_URL}/api/:path*/` }];
+    return [
+      // Must precede the catch-all: the header's status pill polls this to
+      // report whether the BACKEND is reachable, and Django serves the probe
+      // at /healthz/, outside its /api/ tree. Sent through the same proxy as
+      // everything else so it tests the path real requests actually take.
+      { source: "/api/healthz", destination: `${BACKEND_URL}/healthz/` },
+      { source: "/api/:path*", destination: `${BACKEND_URL}/api/:path*/` },
+    ];
   },
 };
 

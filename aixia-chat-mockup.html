@@ -1,0 +1,951 @@
+<title>AIxia Chat</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Comfortaa:wght@400..700&family=Inter:wght@400..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    /* anchors — light */
+    --cream: #F4F1EA;
+    --navy: #0A1128;
+    --slate: #4A5568;
+    --soft: #D9D9D9;
+    --paper: #FFFDF8;
+    --ink-soft: #6B7280;
+    --line: rgba(10, 17, 40, 0.15);
+
+    --gold: #C9A45C;
+    --gold-soft: rgba(201, 164, 92, 0.16);
+    --indigo: #6E76F0;
+    --indigo-soft: rgba(110, 118, 240, 0.18);
+
+    --success: #5A9C7C;
+    --error: #B5544A;
+    --error-soft: rgba(181, 84, 74, 0.14);
+
+    --surface-0: var(--cream);
+    --surface-1: var(--paper);
+    --surface-2: #FFFFFF;
+    --border: var(--line);
+    --text-primary: var(--navy);
+    --text-muted: var(--slate);
+    --accent: var(--gold);
+    --accent-soft: var(--gold-soft);
+    --scrollbar-thumb: var(--navy);
+
+    --bubble-user-bg: var(--navy);
+    --bubble-user-fg: var(--paper);
+    --bubble-ai-bg: rgba(255, 253, 248, 0.86);
+
+    --display: 'Abril Fatface', Georgia, serif;
+    --friendly: 'Comfortaa', system-ui, sans-serif;
+    --utility: 'Inter', system-ui, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+    --gutter: clamp(1rem, 3vw, 2rem);
+    --radius-sm: 0.9rem;
+    --radius-md: 1.4rem;
+    --radius-lg: clamp(1.25rem, 2.5vw, 1.75rem);
+    --radius-pill: 999px;
+    --radius-full: 50%;
+
+    --shadow-sm: 0 1rem 3rem rgba(10, 17, 40, 0.08);
+    --shadow-lg: 0 1.8rem 5rem rgba(10, 17, 40, 0.14);
+    --shadow-float: 0 1.2rem 3.2rem rgba(10, 17, 40, 0.18);
+    --shadow-btn: 0 0.7rem 1.8rem rgba(10, 17, 40, 0.17);
+    --shadow-btn-hover: 0 1rem 2.4rem rgba(10, 17, 40, 0.24);
+
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --fast: 180ms var(--ease);
+    --medium: 420ms var(--ease);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --surface-0: #0A1128;
+      --surface-1: #101A3D;
+      --surface-2: #182552;
+      --border: rgba(255, 255, 255, 0.13);
+      --text-primary: #F4F1EA;
+      --text-muted: #A8A4C4;
+      --accent: var(--indigo);
+      --accent-soft: var(--indigo-soft);
+      --scrollbar-thumb: #182552;
+      --bubble-user-bg: var(--navy);
+      --bubble-user-fg: #F4F1EA;
+      --bubble-ai-bg: rgba(16, 26, 61, 0.86);
+    }
+  }
+  :root[data-theme="dark"] {
+    --surface-0: #0A1128;
+    --surface-1: #101A3D;
+    --surface-2: #182552;
+    --border: rgba(255, 255, 255, 0.13);
+    --text-primary: #F4F1EA;
+    --text-muted: #A8A4C4;
+    --accent: var(--indigo);
+    --accent-soft: var(--indigo-soft);
+    --scrollbar-thumb: #182552;
+    --bubble-user-bg: var(--navy);
+    --bubble-user-fg: #F4F1EA;
+    --bubble-ai-bg: rgba(16, 26, 61, 0.86);
+  }
+
+  * { box-sizing: border-box; }
+  html { font-size: 90%; scroll-behavior: smooth; }
+  body {
+    background: var(--surface-0);
+    color: var(--text-primary);
+    font-family: var(--utility);
+    min-height: 100vh;
+    overflow: hidden;
+    transition: background var(--medium), color var(--medium);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: var(--radius-pill);
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--slate); }
+  html { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .eyebrow {
+    font: 700 0.72rem/1.4 var(--friendly);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+  }
+
+  /* ---------- App shell ---------- */
+  /* The whole app now sits as two separate floating glass panels above
+     the ambient canvas, with a gap between them, instead of a flat
+     edge-to-edge layout. */
+  .shell {
+    display: grid;
+    grid-template-columns: 17rem 1fr;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 1rem;
+    height: 100vh;
+    padding: 1rem;
+    position: relative;
+    box-sizing: border-box;
+  }
+  .shell.rail-collapsed { grid-template-columns: 4.5rem 1fr; }
+
+  /* Ambient background grid + glow — gives the flat canvas depth before
+     any floating element even appears */
+  .ambient {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      radial-gradient(60rem 40rem at 15% -10%, var(--accent-soft), transparent 60%),
+      radial-gradient(50rem 36rem at 100% 100%, var(--accent-soft), transparent 55%),
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: auto, auto, 48px 48px, 48px 48px;
+    opacity: 0.5;
+  }
+
+  /* ---------- Glass — the one mixin every floating panel shares ---------- */
+  .glass {
+    background: color-mix(in srgb, var(--surface-1) 62%, transparent);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid var(--border);
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    position: relative; z-index: 3;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-float);
+    display: flex; flex-direction: column;
+    padding: 1.25rem 1rem;
+    gap: 1.5rem;
+    transition: width var(--medium);
+    overflow: hidden;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 0.65rem;
+    font: 700 0.78rem/1 var(--friendly);
+    letter-spacing: 0.05em; text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .brand-mark {
+    width: 2.1rem; height: 2.1rem; border-radius: var(--radius-full);
+    background: linear-gradient(135deg, var(--accent), var(--navy) 130%);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--paper); font-family: var(--display); font-size: 1.1rem;
+    flex: none;
+  }
+  .new-chat-btn {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-sm);
+    color: var(--text-primary);
+    font: 600 0.8rem/1 var(--friendly);
+    cursor: pointer;
+    transition: box-shadow var(--fast), transform var(--fast), border-color var(--fast);
+    white-space: nowrap;
+  }
+  .new-chat-btn:hover { box-shadow: var(--shadow-float); transform: translateY(-2px); border-color: var(--accent); }
+
+  .nav-group { display: flex; flex-direction: column; gap: 0.3rem; }
+  .nav-group .eyebrow { padding: 0 0.6rem; margin-bottom: 0.2rem; }
+  .history-item {
+    display: flex; align-items: center; gap: 0.65rem;
+    padding: 0.65rem 0.7rem;
+    border-radius: var(--radius-sm);
+    font: 600 0.78rem/1.3 var(--friendly);
+    color: var(--text-muted);
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: background var(--fast), color var(--fast);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .history-item:hover { background: var(--surface-2); color: var(--text-primary); }
+  .history-item.active {
+    background: var(--accent-soft);
+    color: var(--text-primary);
+    border-left-color: var(--accent);
+    box-shadow: var(--shadow-sm);
+  }
+  .history-dot { width: 0.4rem; height: 0.4rem; border-radius: 50%; background: currentColor; opacity: 0.5; flex: none; }
+
+  .sidebar-footer { margin-top: auto; }
+  .rail-toggle {
+    width: 2.1rem; height: 2.1rem; border-radius: var(--radius-full);
+    border: 1px solid var(--border); background: var(--surface-2);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--text-muted);
+    transition: transform var(--fast), color var(--fast);
+    flex: none;
+  }
+  .rail-toggle:hover { color: var(--text-primary); }
+  .rail-collapsed .rail-toggle svg { transform: rotate(180deg); }
+  .rail-collapsed .hide-on-collapse { display: none; }
+
+  /* ---------- Main column ---------- */
+  /* Plain, transparent — the conversation area itself carries no panel
+     background, so the ambient canvas stays visible behind the thread.
+     Only the header (its own floating card) and the messages/composer
+     (each floating individually) get glass + shadow. */
+  .main {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column;
+    gap: 1rem;
+    height: 100%;
+  }
+
+  /* Top/bottom fades — full viewport width, sitting behind BOTH the
+     sidebar and the main column (not scoped to .main), so the darkening
+     is continuous across the whole top/bottom edge instead of stopping
+     at the main column's left border. Sidebar/header/composer/messages
+     all have their own opaque or glass backgrounds and higher z-index,
+     so they still render on top wherever they overlap. */
+  .fade-top, .fade-bottom {
+    position: fixed; left: 0; right: 0;
+    pointer-events: none; z-index: 0;
+  }
+  .fade-top {
+    top: 0; height: 6.5rem;
+    background: linear-gradient(to bottom, var(--surface-0) 0%, var(--surface-0) 45%, transparent 100%);
+  }
+  .fade-bottom {
+    bottom: 0; height: 7rem;
+    background: linear-gradient(to top, var(--surface-0) 0%, var(--surface-0) 35%, transparent 100%);
+  }
+
+  /* App header — its own floating glass card, same treatment as the sidebar */
+  .app-header {
+    position: relative; z-index: 20;
+    flex: none;
+    display: flex; align-items: center; justify-content: space-between;
+    min-height: 4rem;
+    padding: 0 1.5rem;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-float);
+  }
+  .header-left { display: flex; align-items: center; gap: 0.9rem; }
+  .header-title { font: 600 0.9rem/1 var(--friendly); }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface-1) 60%, transparent);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-sm);
+    font: 700 0.72rem/1 var(--friendly);
+    letter-spacing: 0.02em;
+    color: var(--text-primary);
+  }
+  .status-dot {
+    width: 0.5rem; height: 0.5rem; border-radius: 50%;
+    background: var(--warning, #C98A4B);
+    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 20%, transparent);
+    transition: background var(--medium);
+  }
+  .status-dot.online { background: var(--success); }
+  .status-dot.connecting { background: #C98A4B; animation: pulse-dot 1.2s var(--ease) infinite; }
+  .status-dot.offline { background: var(--error); }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .header-right { display: flex; align-items: center; gap: 0.6rem; }
+  .icon-btn {
+    width: 2.4rem; height: 2.4rem; border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface-1) 60%, transparent);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-sm);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); cursor: pointer;
+    transition: color var(--fast), border-color var(--fast), transform var(--fast), box-shadow var(--fast);
+  }
+  .icon-btn:hover { color: var(--text-primary); border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-float); }
+  .avatar {
+    width: 2.4rem; height: 2.4rem; border-radius: var(--radius-full);
+    background: linear-gradient(135deg, var(--slate), var(--navy));
+    color: var(--paper); font: 700 0.75rem/1 var(--friendly);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+  }
+
+  /* Chat scroll area */
+  .chat-scroll {
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: 2rem 0 10rem;
+    position: relative;
+    /* True opacity fade on the scrolled content itself (bubbles included)
+       as it passes the header/composer — a mask-image, not an overlay,
+       so it fades the actual pixels of whatever scrolls underneath
+       rather than getting hard-clipped by the scroll viewport. */
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 4.5rem, #000 calc(100% - 8rem), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 4.5rem, #000 calc(100% - 8rem), transparent 100%);
+  }
+  .chat-thread {
+    max-width: 46rem; margin: 0 auto;
+    padding: 0 1.5rem;
+    display: flex; flex-direction: column; gap: 1.4rem;
+  }
+
+  .day-divider {
+    text-align: center; margin: 0.5rem 0 0.75rem;
+    font: 600 0.67rem/1.4 var(--friendly);
+    color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em;
+  }
+
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity var(--medium), transform var(--medium); }
+  .reveal.is-visible { opacity: 1; transform: translateY(0); }
+
+  .msg-row { display: flex; gap: 0.75rem; }
+  .msg-row.user { justify-content: flex-end; }
+  .msg-row.ai { justify-content: flex-start; }
+
+  .msg-avatar {
+    width: 2rem; height: 2rem; border-radius: var(--radius-full);
+    flex: none; display: flex; align-items: center; justify-content: center;
+    font-family: var(--display); font-size: 0.9rem; color: var(--paper);
+    background: linear-gradient(135deg, var(--accent), var(--navy) 140%);
+    margin-top: 0.2rem;
+  }
+
+  .bubble-stack { display: flex; flex-direction: column; gap: 0.55rem; max-width: 32rem; }
+  .msg-row.user .bubble-stack { align-items: flex-end; }
+
+  .bubble {
+    padding: 0.85rem 1.1rem;
+    border-radius: var(--radius-md);
+    font: 400 0.92rem/1.6 var(--utility);
+    box-shadow: var(--shadow-float);
+    transition: transform var(--fast), box-shadow var(--fast);
+  }
+  .bubble:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+  .msg-row.user .bubble {
+    background: var(--bubble-user-bg); color: var(--bubble-user-fg);
+    border-bottom-right-radius: 0.4rem;
+  }
+  .msg-row.ai .bubble {
+    background: var(--bubble-ai-bg); color: var(--text-primary);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    border-bottom-left-radius: 0.4rem;
+  }
+  .msg-meta { font: 600 0.63rem/1.4 var(--friendly); color: var(--text-muted); padding: 0 0.3rem; }
+
+  .citation-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .citation-pill {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-sm);
+    font: 500 0.66rem/1 var(--mono);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: border-color var(--fast), color var(--fast), transform var(--fast), background var(--fast), box-shadow var(--fast);
+  }
+  .citation-pill:hover {
+    border-color: var(--accent); color: var(--text-primary); transform: translateY(-2px);
+    background: var(--accent-soft);
+    box-shadow: var(--shadow-float);
+  }
+
+  .typing-bubble {
+    display: inline-flex; align-items: center; gap: 0.55rem; padding: 0.9rem 1.2rem;
+    background: var(--bubble-ai-bg); border: 1px solid var(--border);
+    backdrop-filter: blur(10px);
+    border-radius: var(--radius-md); border-bottom-left-radius: 0.4rem;
+    box-shadow: var(--shadow-float);
+  }
+  .typing-text {
+    font: 600 0.78rem/1 var(--friendly); color: var(--text-muted);
+    transition: opacity var(--fast), transform var(--fast);
+  }
+  .typing-text.swap { opacity: 0; transform: translateY(3px); }
+  .typing-dots { display: inline-flex; gap: 0.28rem; }
+  .typing-dots span {
+    width: 0.35rem; height: 0.35rem; border-radius: 50%;
+    background: var(--text-muted); opacity: 0.5;
+    animation: bounce 1.2s var(--ease) infinite;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.5; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+  /* ---------- Floating composer ---------- */
+  .composer-dock {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; justify-content: center;
+    padding: 1.5rem;
+    pointer-events: none;
+    z-index: 15;
+  }
+  .composer {
+    pointer-events: auto;
+    width: 100%; max-width: 44rem;
+    display: flex; flex-direction: column; gap: 0.6rem;
+    padding: 0.9rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface-1) 78%, transparent);
+    backdrop-filter: blur(20px);
+    box-shadow: var(--shadow-float);
+    transition: box-shadow var(--medium), transform var(--medium), border-color var(--fast);
+  }
+  .composer:focus-within { box-shadow: var(--shadow-lg); border-color: var(--accent); transform: translateY(-2px); }
+  .composer-row { display: flex; align-items: flex-end; gap: 0.6rem; }
+  .composer-input {
+    flex: 1; resize: none; border: none; background: transparent;
+    color: var(--text-primary); font: 400 0.92rem/1.5 var(--utility);
+    max-height: 8rem; padding: 0.5rem 0.25rem;
+  }
+  .composer-input::placeholder { color: var(--text-muted); }
+  .composer-input:focus { outline: none; }
+  .composer-actions-left { display: flex; gap: 0.35rem; }
+  .composer-icon {
+    width: 2.2rem; height: 2.2rem; border-radius: var(--radius-full);
+    border: none; background: transparent; color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: background var(--fast), color var(--fast);
+  }
+  .composer-icon:hover { background: var(--surface-2); color: var(--text-primary); }
+  .send-btn {
+    width: 2.5rem; height: 2.5rem; border-radius: var(--radius-full);
+    border: none; background: var(--navy); color: var(--paper);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    box-shadow: var(--shadow-btn);
+    transition: box-shadow var(--fast), transform var(--fast), background var(--fast);
+    flex: none;
+  }
+  [data-theme="dark"] .send-btn, .send-btn.dark-accent { background: var(--indigo); }
+  .send-btn:hover { box-shadow: var(--shadow-btn-hover); transform: translateY(-2px); }
+  .send-btn:active { transform: translateY(1px); box-shadow: none; }
+
+  /* ---------- Floating quick actions (radial menu from + button) ---------- */
+  .quick-actions {
+    position: absolute; bottom: calc(100% + 0.6rem); left: 0;
+    display: flex; flex-direction: column; gap: 0.4rem;
+    padding: 0.5rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface-1) 90%, transparent);
+    backdrop-filter: blur(18px);
+    box-shadow: var(--shadow-float);
+    opacity: 0; transform: translateY(8px) scale(0.96);
+    pointer-events: none;
+    transform-origin: bottom left;
+    transition: opacity var(--fast), transform var(--fast);
+  }
+  .quick-actions.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+  .quick-actions button {
+    display: flex; align-items: center; gap: 0.55rem;
+    padding: 0.55rem 0.8rem; border: none; background: transparent;
+    border-radius: var(--radius-sm); color: var(--text-primary);
+    font: 600 0.76rem/1 var(--friendly); cursor: pointer; white-space: nowrap;
+    transition: background var(--fast);
+  }
+  .quick-actions button:hover { background: var(--accent-soft); }
+
+  /* ---------- Floating sources panel (overlay, not docked) ---------- */
+  .sources-overlay {
+    position: fixed; inset: 0; z-index: 40;
+    background: rgba(10, 17, 40, 0.28);
+    backdrop-filter: blur(2px);
+    opacity: 0; pointer-events: none;
+    transition: opacity var(--medium);
+  }
+  .sources-overlay.open { opacity: 1; pointer-events: auto; }
+
+  .sources-panel {
+    position: fixed; top: 1.25rem; right: 1.25rem; bottom: 1.25rem;
+    width: min(23rem, calc(100vw - 2.5rem));
+    z-index: 41;
+    display: flex; flex-direction: column;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+    backdrop-filter: blur(22px);
+    box-shadow: var(--shadow-lg);
+    transform: translateX(calc(100% + 2rem));
+    transition: transform var(--medium);
+    overflow: hidden;
+  }
+  .sources-panel.open { transform: translateX(0); }
+  .sources-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.1rem 1.2rem; border-bottom: 1px solid var(--border);
+  }
+  .sources-head h3 { margin: 0; font: 400 1.3rem/1 var(--display); }
+  .sources-body { padding: 1.1rem 1.2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.9rem; }
+  .source-card {
+    padding: 0.9rem 1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+    backdrop-filter: blur(8px);
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--fast), box-shadow var(--fast), border-color var(--fast);
+  }
+  .source-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-float); border-color: var(--accent); }
+  .source-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.45rem; }
+  .source-card-title { font: 700 0.78rem/1.3 var(--friendly); }
+  .source-score { font: 500 0.63rem/1 var(--mono); color: var(--accent); }
+  .source-card-excerpt { font: 400 0.8rem/1.55 var(--utility); color: var(--text-muted); }
+
+  /* ---------- Floating scroll-to-bottom ---------- */
+  .scroll-fab {
+    position: absolute; right: 1.75rem; bottom: 7.5rem; z-index: 16;
+    width: 2.6rem; height: 2.6rem; border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+    backdrop-filter: blur(14px);
+    box-shadow: var(--shadow-float);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-primary); cursor: pointer;
+    opacity: 0; transform: translateY(8px) scale(0.9);
+    pointer-events: none;
+    transition: opacity var(--fast), transform var(--fast);
+  }
+  .scroll-fab.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+
+  .empty-hero { text-align: center; padding: 3rem 1rem 1rem; }
+  .empty-hero h1 {
+    font: 400 clamp(1.8rem, 3vw, 2.6rem)/1.05 var(--display);
+    margin: 0 0 0.6rem;
+  }
+  .empty-hero h1 em { font-style: italic; color: var(--accent); }
+  .empty-hero p { color: var(--text-muted); font: 500 0.85rem/1.6 var(--friendly); max-width: 30rem; margin: 0 auto; }
+
+  @media (max-width: 60rem) {
+    .shell { grid-template-columns: 4.5rem 1fr; }
+    .hide-on-collapse { display: none; }
+  }
+  @media (max-width: 47.5rem) {
+    .sources-panel { top: 0.6rem; right: 0.6rem; bottom: 0.6rem; width: calc(100vw - 1.2rem); }
+    .chat-thread { padding: 0 0.9rem; }
+  }
+</style>
+
+<div class="ambient"></div>
+<div class="fade-top"></div>
+<div class="fade-bottom"></div>
+
+<div class="shell" id="shell">
+  <aside class="sidebar glass" id="sidebar">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div class="brand">
+        <span class="brand-mark">Æ</span>
+        <span class="hide-on-collapse">AIxia</span>
+      </div>
+      <button class="rail-toggle hide-on-collapse" id="railToggle" aria-label="Collapse sidebar" title="Collapse sidebar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+    </div>
+
+    <button class="new-chat-btn">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      <span class="hide-on-collapse">New conversation</span>
+    </button>
+
+    <div class="nav-group hide-on-collapse">
+      <div class="eyebrow">History</div>
+      <div class="history-item active"><span class="history-dot"></span>Tech stack &amp; RAG design</div>
+      <div class="history-item"><span class="history-dot"></span>Summarize my CV</div>
+      <div class="history-item"><span class="history-dot"></span>ML lifecycle questions</div>
+      <div class="history-item"><span class="history-dot"></span>Certifications overview</div>
+      <div class="history-item"><span class="history-dot"></span>Portfolio project recap</div>
+    </div>
+
+    <div class="sidebar-footer" style="display:flex; align-items:center; gap:0.6rem;">
+      <div class="avatar">SV</div>
+      <div class="hide-on-collapse" style="overflow:hidden;">
+        <div style="font:600 0.78rem/1.2 var(--friendly); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Vince</div>
+        <div style="font:500 0.65rem/1.2 var(--friendly); color:var(--text-muted);">Owner</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="app-header glass">
+      <div class="header-left">
+        <div class="header-title">Tech stack &amp; RAG design</div>
+        <span class="status-pill"><span class="status-dot connecting" id="statusDot"></span>AIxia</span>
+      </div>
+      <div class="header-right">
+        <button class="icon-btn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+        </button>
+        <button class="icon-btn" title="Notifications" aria-label="Notifications">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="chat-scroll" id="chatScroll">
+      <div class="chat-thread" id="chatThread">
+
+        <div class="day-divider">Today</div>
+
+        <div class="msg-row ai reveal is-visible">
+          <div class="msg-avatar">Æ</div>
+          <div class="bubble-stack">
+            <div class="bubble">Hi, I'm Aixia — ask me anything about Vince's background, skills, or projects. I'll answer from his CV and notes, with sources you can check.</div>
+          </div>
+        </div>
+
+        <div class="msg-row user reveal is-visible">
+          <div class="bubble-stack">
+            <div class="bubble">What's Vince's current role, and what's his tech stack looking like for AIxia?</div>
+          </div>
+        </div>
+
+        <div class="msg-row ai reveal is-visible">
+          <div class="msg-avatar">Æ</div>
+          <div class="bubble-stack">
+            <div class="bubble">
+              Vince is a Junior AI Developer at AutoMate IT Solutions, a Philippine startup — he's one of the pioneer developers there, fully remote. For AIxia specifically (this project), the stack is <strong>Django REST Framework</strong> for the API, <strong>LangChain</strong> for retrieval orchestration, <strong>ChromaDB</strong> as the vector store, <strong>PostgreSQL</strong> for relational data, and <strong>Next.js</strong> on the frontend.
+            </div>
+            <div class="citation-row">
+              <span class="citation-pill" onclick="openSources()">📄 resume.pdf · p.1</span>
+              <span class="citation-pill" onclick="openSources()">🗂 aixia-notes.md</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="msg-row user reveal is-visible">
+          <div class="bubble-stack">
+            <div class="bubble">Nice. Any certifications worth mentioning?</div>
+          </div>
+        </div>
+
+        <div class="msg-row ai reveal is-visible" id="typingRow">
+          <div class="msg-avatar">Æ</div>
+          <div class="typing-bubble">
+            <span class="typing-text" id="typingText">Consulting Archives</span>
+            <span class="typing-dots"><span></span><span></span><span></span></span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="composer-dock">
+      <div class="composer">
+        <div class="composer-row">
+          <div style="position:relative;">
+            <button class="composer-icon" id="plusBtn" aria-label="More actions">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <div class="quick-actions" id="quickActions">
+              <button>📎 Attach a document</button>
+              <button>🗂 Reference a project</button>
+              <button>⬇ Export this conversation</button>
+            </div>
+          </div>
+          <textarea class="composer-input" rows="1" placeholder="Message Aixia…" id="composerInput"></textarea>
+          <button class="send-btn" id="sendBtn" aria-label="Send message">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <button class="scroll-fab" id="scrollFab" aria-label="Scroll to latest">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+    </button>
+  </div>
+</div>
+
+<div class="sources-overlay" id="sourcesOverlay" onclick="closeSources()"></div>
+<div class="sources-panel" id="sourcesPanel">
+  <div class="sources-head">
+    <h3>Sources</h3>
+    <button class="icon-btn" onclick="closeSources()" aria-label="Close sources">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="sources-body">
+    <div class="source-card">
+      <div class="source-card-head">
+        <span class="source-card-title">📄 resume.pdf · page 1</span>
+        <span class="source-score">0.91 match</span>
+      </div>
+      <div class="source-card-excerpt">"Junior AI Developer, AutoMate IT Solutions — pioneer developer, fully remote, direct access to the CEO. Started Aug 2026, probationary."</div>
+    </div>
+    <div class="source-card">
+      <div class="source-card-head">
+        <span class="source-card-title">🗂 aixia-notes.md</span>
+        <span class="source-score">0.87 match</span>
+      </div>
+      <div class="source-card-excerpt">"Stack: Django REST Framework, LangChain, ChromaDB, PostgreSQL, Next.js. Built with professional-grade discipline — documentation, QA, incremental testing."</div>
+    </div>
+    <div class="source-card">
+      <div class="source-card-head">
+        <span class="source-card-title">📄 resume.pdf · page 2</span>
+        <span class="source-score">0.74 match</span>
+      </div>
+      <div class="source-card-excerpt">"Computer Engineering, Magna Cum Laude (GWA 1.32), University of the East, Manila. Scrum Foundation Professional Certification, CertiProf, 2024."</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // theme: dark-first by default per design system, toggle swaps explicit light/dark
+  const root = document.documentElement;
+  root.setAttribute('data-theme', 'dark');
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const isDark = root.getAttribute('data-theme') !== 'light';
+    root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  });
+
+  // connection status: connecting -> online shortly after load
+  const statusDot = document.getElementById('statusDot');
+  setTimeout(() => {
+    statusDot.classList.remove('connecting');
+    statusDot.classList.add('online');
+  }, 1100);
+
+  // sidebar rail collapse
+  const shell = document.getElementById('shell');
+  document.getElementById('railToggle').addEventListener('click', () => {
+    shell.classList.toggle('rail-collapsed');
+  });
+
+  // reveal-on-scroll for new messages
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.reveal:not(.is-visible)').forEach((el) => io.observe(el));
+
+  // quick actions floating menu
+  const plusBtn = document.getElementById('plusBtn');
+  const quickActions = document.getElementById('quickActions');
+  plusBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    quickActions.classList.toggle('open');
+  });
+  document.addEventListener('click', () => quickActions.classList.remove('open'));
+
+  // floating sources panel
+  function openSources() {
+    document.getElementById('sourcesOverlay').classList.add('open');
+    document.getElementById('sourcesPanel').classList.add('open');
+  }
+  function closeSources() {
+    document.getElementById('sourcesOverlay').classList.remove('open');
+    document.getElementById('sourcesPanel').classList.remove('open');
+  }
+
+  // scroll-to-bottom fab
+  const chatScroll = document.getElementById('chatScroll');
+  const scrollFab = document.getElementById('scrollFab');
+  function nearBottom() {
+    return chatScroll.scrollHeight - chatScroll.scrollTop - chatScroll.clientHeight < 80;
+  }
+  chatScroll.addEventListener('scroll', () => {
+    scrollFab.classList.toggle('show', !nearBottom());
+  });
+  scrollFab.addEventListener('click', () => {
+    chatScroll.scrollTo({ top: chatScroll.scrollHeight, behavior: 'smooth' });
+  });
+
+  // simulate the "typing" bubble resolving into a real answer, then let
+  // the composer send fresh turns forever, ping-ponging user/AI
+  const thread = document.getElementById('chatThread');
+  const composerInput = document.getElementById('composerInput');
+  const sendBtn = document.getElementById('sendBtn');
+
+  function scrollToLatest() {
+    chatScroll.scrollTo({ top: chatScroll.scrollHeight, behavior: 'smooth' });
+  }
+
+  function addUserMessage(text) {
+    const row = document.createElement('div');
+    row.className = 'msg-row user reveal';
+    row.innerHTML = `<div class="bubble-stack"><div class="bubble"></div></div>`;
+    row.querySelector('.bubble').textContent = text;
+    thread.appendChild(row);
+    io.observe(row);
+    requestAnimationFrame(() => row.classList.add('is-visible'));
+    scrollToLatest();
+  }
+
+  const thinkingPhrases = [
+    "Consulting Archives", "Checking Lore", "Digging Deeper", "Looking Closer",
+    "Letting It Cook", "Putting Together", "Connecting Things", "Recalling Vince",
+    "Scanning Lore", "Accessing Archives", "Tracing Threads", "Connecting Dots",
+    "Following Leads", "Finding Context", "Decoding Vince"
+  ];
+
+  function addTypingRow() {
+    const row = document.createElement('div');
+    row.className = 'msg-row ai reveal is-visible';
+    const first = thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)];
+    row.innerHTML = `<div class="msg-avatar">Æ</div><div class="typing-bubble"><span class="typing-text">${first}</span><span class="typing-dots"><span></span><span></span><span></span></span></div>`;
+    thread.appendChild(row);
+    scrollToLatest();
+
+    const textEl = row.querySelector('.typing-text');
+    let idx = thinkingPhrases.indexOf(first);
+    const rotate = setInterval(() => {
+      if (!document.body.contains(row)) { clearInterval(rotate); return; }
+      textEl.classList.add('swap');
+      setTimeout(() => {
+        idx = (idx + 1) % thinkingPhrases.length;
+        textEl.textContent = thinkingPhrases[idx];
+        textEl.classList.remove('swap');
+      }, 160);
+    }, 950);
+    row._stopThinking = () => clearInterval(rotate);
+    return row;
+  }
+
+  const canned = [
+    {
+      text: "Vince holds a Scrum Foundation Professional Certification (CertiProf, 2024) and graduated Magna Cum Laude in Computer Engineering — GWA 1.32 — from the University of the East, Manila. His background spans embedded systems, computer vision, and applied AI/ML.",
+      sources: ["📄 resume.pdf · p.2", "🗂 aixia-notes.md"]
+    },
+    {
+      text: "His long-term goal is to reach middle-middle income class as a single earner in the Philippines, with research and PhD-track aspirations in ML engineering — he's aiming to publish novel models and papers down the line.",
+      sources: ["📄 resume.pdf · p.3"]
+    },
+    {
+      text: "For hosting, he's weighing a Cloudflare Tunnel with a Raspberry Pi 5 (8GB) as a home-server alternative to paid hosting — keeps annual costs down to roughly the domain fee alone, though that's not set up yet.",
+      sources: ["🗂 aixia-notes.md", "🗂 infra-plan.md"]
+    }
+  ];
+  let cannedIdx = 0;
+
+  function respond() {
+    const typingRow = addTypingRow();
+    setTimeout(() => {
+      if (typingRow._stopThinking) typingRow._stopThinking();
+      typingRow.remove();
+      const reply = canned[cannedIdx % canned.length];
+      cannedIdx++;
+      const row = document.createElement('div');
+      row.className = 'msg-row ai reveal';
+      const pills = reply.sources.map(s => `<span class="citation-pill" onclick="openSources()">${s}</span>`).join('');
+      row.innerHTML = `<div class="msg-avatar">Æ</div><div class="bubble-stack"><div class="bubble">${reply.text}</div><div class="citation-row">${pills}</div></div>`;
+      thread.appendChild(row);
+      io.observe(row);
+      requestAnimationFrame(() => row.classList.add('is-visible'));
+      scrollToLatest();
+    }, 1400);
+  }
+
+  function send() {
+    const val = composerInput.value.trim();
+    if (!val) return;
+    addUserMessage(val);
+    composerInput.value = '';
+    composerInput.style.height = 'auto';
+    respond();
+  }
+
+  sendBtn.addEventListener('click', send);
+  composerInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+  composerInput.addEventListener('input', () => {
+    composerInput.style.height = 'auto';
+    composerInput.style.height = Math.min(composerInput.scrollHeight, 128) + 'px';
+  });
+
+  // rotate the thinking text on the static initial typing row, then
+  // resolve it into a real answer
+  (function () {
+    const row = document.getElementById('typingRow');
+    if (!row) return;
+    const textEl = document.getElementById('typingText');
+    let idx = 0;
+    const rotate = setInterval(() => {
+      textEl.classList.add('swap');
+      setTimeout(() => {
+        idx = (idx + 1) % thinkingPhrases.length;
+        textEl.textContent = thinkingPhrases[idx];
+        textEl.classList.remove('swap');
+      }, 160);
+    }, 950);
+    row._stopThinking = () => clearInterval(rotate);
+  })();
+
+  setTimeout(() => {
+    const initialTyping = document.getElementById('typingRow');
+    if (initialTyping) {
+      if (initialTyping._stopThinking) initialTyping._stopThinking();
+      initialTyping.outerHTML = `<div class="msg-row ai reveal is-visible" style="display:flex;">
+        <div class="msg-avatar">Æ</div>
+        <div class="bubble-stack">
+          <div class="bubble">Yes — he holds a Scrum Foundation Professional Certification (CertiProf, 2024), and graduated Magna Cum Laude in Computer Engineering (GWA 1.32) from the University of the East, Manila.</div>
+          <div class="citation-row">
+            <span class="citation-pill" onclick="openSources()">📄 resume.pdf · p.2</span>
+          </div>
+        </div>
+      </div>`;
+      scrollToLatest();
+    }
+  }, 1600);
+</script>

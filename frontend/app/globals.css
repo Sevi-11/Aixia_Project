@@ -128,6 +128,20 @@ body {
   transition: background var(--medium), color var(--medium);
 }
 
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition: background-color var(--medium),
+              background-image var(--medium),
+              border-color var(--medium),
+              color var(--medium),
+              fill var(--medium),
+              stroke var(--medium),
+              box-shadow var(--medium) !important;
+  transition-delay: 0s !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -161,6 +175,41 @@ button, textarea, input { font: inherit; color: inherit; }
   letter-spacing: 0.05em;
   color: var(--text-muted);
 }
+
+/* ---------- Motion primitives ---------- */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes bubble-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes row-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Two states stacked in one grid cell so swapping between them crossfades
+   instead of popping. Used for the theme icon and the copy/copied tick — both
+   were hard icon swaps before. */
+.icon-swap { display: grid; place-items: center; width: 1rem; height: 1rem; }
+.icon-swap > * {
+  grid-area: 1 / 1;
+  display: flex;
+  transition: opacity var(--fast), transform var(--medium);
+}
+.icon-swap > :last-child { opacity: 0; transform: rotate(-90deg) scale(0.5); }
+.icon-swap.is-alt > :first-child { opacity: 0; transform: rotate(90deg) scale(0.5); }
+.icon-swap.is-alt > :last-child { opacity: 1; transform: none; }
+
+/* Same idea for text that replaces text. */
+.label-swap { display: grid; }
+.label-swap > * {
+  grid-area: 1 / 1;
+  transition: opacity var(--fast), transform var(--fast);
+}
+.label-swap > .is-hidden { opacity: 0; transform: translateY(3px); pointer-events: none; }
 
 /* ---------- App shell ---------- */
 /* The whole app sits as two separate floating glass panels above the ambient
@@ -309,6 +358,7 @@ button, textarea, input { font: inherit; color: inherit; }
   border-left: 2px solid transparent;
   transition: background var(--fast);
 }
+.history-row { animation: row-in 300ms var(--ease) backwards; }
 .history-row:hover { background: var(--surface-2); }
 .history-row.active {
   background: var(--accent-soft);
@@ -357,8 +407,18 @@ button, textarea, input { font: inherit; color: inherit; }
 .history-rename:focus { outline: none; }
 
 .sidebar-footer { margin-top: auto; display: flex; align-items: center; gap: 0.6rem; }
-.rail-collapsed .sidebar-footer { justify-content: center; }
 .sidebar-note { flex: none; font: 500 0.62rem/1.5 var(--friendly); color: var(--text-muted); padding: 0.35rem 0.2rem 0; }
+
+/* Always mounted so it can fade. Rendering it conditionally meant the dimming
+   appeared and vanished instantly under a drawer that was busy sliding. */
+.rail-scrim {
+  position: fixed; inset: 0; z-index: 44; border: none;
+  background: rgba(10, 17, 40, 0.28);
+  backdrop-filter: blur(2px);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--medium);
+}
+.rail-scrim.open { opacity: 1; pointer-events: auto; }
 
 .rail-toggle {
   width: 2.1rem; height: 2.1rem; border-radius: var(--radius-full);
@@ -379,7 +439,6 @@ button, textarea, input { font: inherit; color: inherit; }
 .rail-toggle:hover { color: var(--text-primary); }
 .rail-toggle svg { transition: transform var(--medium); }
 .rail-collapsed .rail-toggle svg { transform: rotate(180deg); }
-.rail-collapsed .hide-on-collapse { display: none; }
 
 /* ---------- Main column ---------- */
 /* Plain, transparent — the conversation area itself carries no panel
@@ -529,6 +588,7 @@ button, textarea, input { font: inherit; color: inherit; }
   transition: transform var(--fast), box-shadow var(--fast);
   overflow-wrap: anywhere;
 }
+.msg-row.ai .bubble { animation: bubble-in 260ms var(--ease); }
 .bubble:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
 .msg-row.user .bubble {
   background: var(--bubble-user-bg); color: var(--bubble-user-fg);
@@ -564,6 +624,97 @@ button, textarea, input { font: inherit; color: inherit; }
   padding: 0.1rem 0.35rem; border-radius: 0.4rem;
 }
 .bubble strong { font-weight: 700; }
+.bubble em { font-style: italic; }
+.bubble del { opacity: 0.65; }
+
+/* ---------- Markdown inside a bubble ----------
+   The answer prompt asks the model for headings, nested and task lists,
+   tables, fenced code, quotes and rules, so all of them need to look like
+   they belong in a chat bubble rather than a document. */
+
+.bubble .md-h {
+  font-family: var(--friendly);
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 1rem 0 0.4rem;
+}
+.bubble .md-h:first-child { margin-top: 0; }
+.bubble .md-h1 { font-size: 1.05rem; }
+.bubble .md-h2 { font-size: 0.98rem; }
+.bubble .md-h3, .bubble .md-h4, .bubble .md-h5, .bubble .md-h6 {
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  text-transform: none;
+}
+
+.bubble .md-rule {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.9rem 0;
+}
+
+.bubble .md-quote {
+  margin: 0.6rem 0;
+  padding: 0.1rem 0 0.1rem 0.85rem;
+  border-left: 2px solid var(--accent);
+  color: var(--text-muted);
+}
+.bubble .md-quote > :first-child { margin-top: 0; }
+.bubble .md-quote > :last-child { margin-bottom: 0; }
+
+.bubble .md-code {
+  margin: 0.6rem 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  overflow-x: auto;
+}
+.bubble .md-code code {
+  background: none;
+  padding: 0;
+  font: 500 0.8rem/1.6 var(--mono);
+  white-space: pre;
+}
+
+/* Nested lists tighten up rather than compounding the outer list's margins. */
+.bubble .md-list .md-list { margin: 0.25rem 0 0; }
+
+.bubble .md-tasks { list-style: none; padding-left: 0.2rem; }
+.bubble .md-task { display: flex; align-items: flex-start; gap: 0.5rem; }
+.bubble .md-task input {
+  margin: 0.35rem 0 0;
+  accent-color: var(--accent);
+  flex: none;
+  pointer-events: none;
+}
+
+/* A wide table scrolls inside the bubble instead of stretching it past the
+   thread's column. */
+.bubble .md-table-wrap { margin: 0.7rem 0; overflow-x: auto; }
+.bubble .md-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.85rem;
+}
+.bubble .md-table th, .bubble .md-table td {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.6rem;
+  vertical-align: top;
+}
+.bubble .md-table th {
+  font: 700 0.78rem/1.4 var(--friendly);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  white-space: nowrap;
+}
+
+.bubble .md-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+.bubble .md-link:hover { text-decoration-thickness: 2px; }
 
 .msg-meta { font: 600 0.63rem/1.4 var(--friendly); color: var(--text-muted); padding: 0 0.3rem; }
 
@@ -576,7 +727,7 @@ button, textarea, input { font: inherit; color: inherit; }
 }
 @keyframes caret-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
-.citation-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.citation-row { display: flex; flex-wrap: wrap; gap: 0.4rem; animation: fade-up var(--fast) 80ms backwards; }
 .citation-pill {
   display: inline-flex; align-items: center; gap: 0.35rem;
   padding: 0.35rem 0.7rem;
@@ -634,7 +785,7 @@ button, textarea, input { font: inherit; color: inherit; }
 
 /* Follow-up suggestion chips under the last answer — extension, reusing the
    quick-action button's type at pill scale. */
-.suggestion-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.suggestion-row { display: flex; flex-wrap: wrap; gap: 0.4rem; animation: fade-up var(--fast) 140ms backwards; }
 .suggestion-chip {
   padding: 0.45rem 0.85rem;
   border-radius: var(--radius-pill);
@@ -834,7 +985,7 @@ button, textarea, input { font: inherit; color: inherit; }
 .scroll-fab.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 
 /* ---------- Empty hero ---------- */
-.empty-hero { text-align: center; padding: 3rem 1rem 1rem; }
+.empty-hero { text-align: center; padding: 3rem 1rem 1rem; animation: fade-up var(--medium) backwards; }
 .empty-hero h1 {
   font: 400 clamp(1.8rem, 3vw, 2.6rem)/1.05 var(--display);
   margin: 0 0 0.6rem;
@@ -865,7 +1016,11 @@ button, textarea, input { font: inherit; color: inherit; }
   font: 500 0.78rem/1.45 var(--friendly);
   text-align: left; cursor: pointer;
   transition: transform var(--fast), box-shadow var(--fast), border-color var(--fast), color var(--fast);
+  animation: fade-up var(--medium) backwards;
 }
+.starter-card:nth-child(1) { animation-delay: 80ms; }
+.starter-card:nth-child(2) { animation-delay: 150ms; }
+.starter-card:nth-child(3) { animation-delay: 220ms; }
 .starter-card:hover {
   transform: translateY(-3px); box-shadow: var(--shadow-float);
   border-color: var(--accent); color: var(--text-primary);
@@ -886,16 +1041,15 @@ button, textarea, input { font: inherit; color: inherit; }
    full width behind the drawer. */
 @media (max-width: 60rem) {
   .shell { grid-template-columns: 4.5rem 1fr; }
-  .shell:not(.rail-collapsed) .sidebar {
+  /* Fixed in BOTH states. `position` cannot tween, so switching relative ->
+     fixed on toggle teleported the whole panel; pinning it here means opening
+     the drawer animates a width and nothing else. The 4.5rem grid track stays
+     behind it to reserve the rail's footprint. */
+  .sidebar {
     position: fixed; top: 1rem; bottom: 1rem; left: 1rem;
-    width: min(17rem, calc(100vw - 4rem));
-    z-index: 45;
+    width: 4.5rem; z-index: 45;
   }
-  .rail-scrim {
-    position: fixed; inset: 0; z-index: 44; border: none;
-    background: rgba(10, 17, 40, 0.28);
-    backdrop-filter: blur(2px);
-  }
+  .shell:not(.rail-collapsed) .sidebar { width: min(17rem, calc(100vw - 4rem)); }
 }
 @media (min-width: 60.0625rem) {
   .rail-scrim { display: none; }
@@ -914,7 +1068,7 @@ button, textarea, input { font: inherit; color: inherit; }
   .scroll-fab { right: 1rem; bottom: 6.5rem; }
   .empty-hero { padding: 1.75rem 0.25rem 1rem; }
   .starter-grid { margin-top: 1.6rem; }
-  .shell:not(.rail-collapsed) .sidebar { top: 0.6rem; bottom: 0.6rem; left: 0.6rem; }
+  .sidebar { top: 0.6rem; bottom: 0.6rem; left: 0.6rem; }
 }
 
 /* Phone */

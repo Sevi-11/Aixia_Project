@@ -13,7 +13,7 @@ from .a_serializers import ChatRequestSerializer, ChatMessageSerializer
 
 from rag.c_embeddings import get_embeddings
 from rag.d_vectorstore import load_vectorstore
-from rag.f_chains import answer_question, answer_question_stream, generate_followup_suggestions
+from rag.f_chains import answer_question, answer_question_stream, generate_followup_suggestions, generate_title
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +142,11 @@ class ChatStreamView(APIView):
             prior_messages = _prior_messages(session)
             ChatMessage.objects.create(session=session, role='user', content=question)
 
+        # prior_messages is the history that existed BEFORE this question, so an
+        # empty one means this is the conversation's opening turn. Captured here
+        # because the generator below runs after the response has been returned.
+        is_first_turn = not prior_messages
+
         embedder = get_embeddings()
         vectorstore = load_vectorstore(embedder)
         retrieved_docs, token_stream = answer_question_stream(vectorstore, question, history=prior_messages)
@@ -169,6 +174,15 @@ class ChatStreamView(APIView):
                     logger.exception("Follow-up suggestion generation raised unexpectedly")
 
             yield json.dumps({"type": "suggestions", "suggestions": suggestions}) + "\n"
+
+            # Only on the turn that opens a conversation. The client shows the
+            # truncated question straight away and swaps this summary in when
+            # it lands, so a slow or failed title costs nothing -- the answer
+            # has finished streaming long before this runs.
+            if is_first_turn and full_answer:
+                title = generate_title(question)
+                if title:
+                    yield json.dumps({"type": "title", "title": title}) + "\n"
 
             yield json.dumps({
                 "type": "done",

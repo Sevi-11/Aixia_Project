@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { CloseIcon } from "./icons";
-import { sourceLabel } from "./MessageRow";
+import { sourceLabel } from "./sourceLabel";
 
 export default function SourcesPanel({ open, sources, highlightedIndex, onClose }) {
   const bodyRef = useRef(null);

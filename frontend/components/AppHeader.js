@@ -1,6 +1,6 @@
 "use client";
 
-import { MoonIcon, SunIcon } from "./icons";
+import { IconSwap, MoonIcon, SunIcon } from "./icons";
 
 const STATUS_LABEL = {
   connecting: "Connecting to AIxia",
@@ -27,7 +27,10 @@ export default function AppHeader({ title, status, theme, onToggleTheme }) {
           title={theme === "dark" ? "Switch to light" : "Switch to dark"}
           aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
         >
-          {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+          <IconSwap alt={theme === "dark"}>
+            <MoonIcon />
+            <SunIcon />
+          </IconSwap>
         </button>
       </div>
     </header>

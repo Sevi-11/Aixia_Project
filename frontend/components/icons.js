@@ -38,3 +38,10 @@ export const ThumbDownIcon = (props) => <Icon size={14} {...props}><path d="M17 
 export const PaperclipIcon = (props) => <Icon size={14} {...props}><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.2-9.2a3.67 3.67 0 0 1 5.18 5.19l-9.19 9.19a1.83 1.83 0 0 1-2.6-2.6l8.5-8.48" /></Icon>;
 export const DownloadIcon = (props) => <Icon size={14} {...props}><path d="M12 3v12M7 11l5 5 5-5M4 20h16" /></Icon>;
 export const SpinnerIcon = (props) => <Icon size={13} {...props}><path d="M21 12a9 9 0 1 1-6.2-8.6" /></Icon>;
+
+// Stacks two icons in one grid cell and crossfades between them, so a state
+// change (light/dark, copy/copied) reads as a turn rather than a hard cut.
+// `alt` picks the second child.
+export const IconSwap = ({ alt, children }) => (
+  <span className={`icon-swap${alt ? " is-alt" : ""}`} aria-hidden="true">{children}</span>
+);

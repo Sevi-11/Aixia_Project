@@ -179,3 +179,19 @@ Respond with ONLY a JSON array of plain strings, nothing else. No markdown, no c
 Example: ["Question one?", "Question two?"]
 """)
 
+
+title_prompt = ChatPromptTemplate.from_template("""
+Write a short title for a conversation that opened with the question below.
+
+Rules:
+- 2 to 5 words. Never a full sentence.
+- Describe the SUBJECT, not the asking. "Machine learning experience", not "User asks about ML".
+- Title Case is not required; sentence case is fine.
+- No quotes, no trailing punctuation, no markdown, no explanation.
+- Output the title and nothing else.
+
+Question:
+{question}
+
+Title:
+""")

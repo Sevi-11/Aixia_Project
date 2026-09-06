@@ -7,6 +7,7 @@ import MessageRow from "./MessageRow";
 import Sidebar from "./Sidebar";
 import SourcesPanel from "./SourcesPanel";
 import { ArrowDownIcon } from "./icons";
+import { createTypingPacer } from "./typingPacer";
 
 const HISTORY_KEY = "aixia-chat-history";
 const RAIL_KEY = "aixia-sidebar-open";
@@ -147,8 +148,36 @@ export default function ChatWindow() {
     }
   }, [chats]);
 
+  // Skips the first run: the theme is already correct at first paint (the
+  // bootstrap script in layout.js sets it), and crossfading into it would look
+  // like the page loading wrong and then correcting itself.
+  const themeSettled = useRef(false);
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
+    const root = document.documentElement;
+
+    if (themeSettled.current) {
+      // Every panel and bubble changes color at once here. Component rules own
+      // the `transition` shorthand, so the only way to tween all of them is to
+      // outrank those rules for the length of the swap — see .theme-transition
+      // in globals.css — then get out of the way so hover timings stay snappy.
+      root.classList.add("theme-transition");
+      // The flush is load-bearing: a transition only starts when the property
+      // is already in the *previous* computed style. Adding the class and
+      // flipping data-theme in one tick batches into a single recalc, the
+      // browser sees no prior transition, and every colour snaps instead.
+      void root.offsetHeight;
+      const done = setTimeout(() => root.classList.remove("theme-transition"), 460);
+      root.setAttribute("data-theme", theme);
+      try {
+        localStorage.setItem(THEME_KEY, theme);
+      } catch {
+        // Storage can be disabled; the theme still applies for this session.
+      }
+      return () => clearTimeout(done);
+    }
+
+    themeSettled.current = true;
+    root.setAttribute("data-theme", theme);
     try {
       localStorage.setItem(THEME_KEY, theme);
     } catch {
@@ -246,6 +275,13 @@ export default function ChatWindow() {
   async function runChatStream(chatId, requestBody) {
     setLoadingChats((current) => new Set(current).add(chatId));
 
+    // Tokens are revealed through the pacer rather than painted on arrival, so
+    // the answer types itself evenly instead of lurching a phrase at a time.
+    const pacer = createTypingPacer({
+      onReveal: (chunk) => updateLastMessage(chatId, (message) => ({ ...message, content: message.content + chunk })),
+      onSettled: () => updateLastMessage(chatId, (message) => ({ ...message, streaming: false })),
+    });
+
     try {
       const response = await fetch(STREAM_URL, {
         method: "POST",
@@ -273,25 +309,45 @@ export default function ChatWindow() {
           if (event.type === "sources") {
             updateLastMessage(chatId, (message) => ({ ...message, sources: event.sources }));
           } else if (event.type === "token") {
-            updateLastMessage(chatId, (message) => ({ ...message, content: message.content + event.content }));
+            pacer.push(event.content);
           } else if (event.type === "suggestions") {
             updateLastMessage(chatId, (message) => ({ ...message, suggestions: event.suggestions }));
+          } else if (event.type === "title") {
+            // The opening question was used as a placeholder title the moment
+            // the message was sent; this is the summary that replaces it. A
+            // title the reader chose themselves always wins.
+            setChats((current) => current.map((chat) => (
+              chat.id === chatId && !chat.titleSetByUser
+                ? { ...chat, title: event.title, updatedAt: Date.now() }
+                : chat
+            )));
           } else if (event.type === "done") {
             updateChat(chatId, { sessionId: event.session_id, sessionToken: event.session_token });
-            updateLastMessage(chatId, (message) => ({ ...message, streaming: false }));
+            // Not `streaming: false` — the pacer may still have text queued.
+            // It flips that flag itself once the buffer has drained.
+            pacer.close();
           } else if (event.type === "error") {
+            pacer.flush();
             updateLastMessage(chatId, (message) => ({ ...message, role: "error", content: message.content || event.message, streaming: false }));
           }
         }
       }
+
+      // The server can close without a "done" (a dropped connection mid-answer);
+      // settle whatever is buffered rather than leaving a caret blinking forever.
+      pacer.close();
+      await pacer.whenSettled();
     } catch (error) {
       setStatus("offline");
+      pacer.flush();
       updateLastMessage(chatId, (message) => (
         message.content
           ? { ...message, streaming: false }
           : { ...message, role: "error", content: `I couldn't connect to AIxia. ${error.message}`, streaming: false }
       ));
     } finally {
+      // Cleared only after the reveal finishes, so the composer does not
+      // re-enable while the answer is still typing itself out.
       setLoadingChats((current) => {
         const next = new Set(current);
         next.delete(chatId);
@@ -391,9 +447,16 @@ export default function ChatWindow() {
       <div className="fade-bottom" aria-hidden="true" />
 
       <div className={`shell${railCollapsed ? " rail-collapsed" : ""}`}>
-        {!railCollapsed && (
-          <button type="button" className="rail-scrim" aria-label="Collapse sidebar" onClick={() => setRailCollapsed(true)} />
-        )}
+        {/* Always mounted, faded by class — mounting it only while open meant
+            the dimming blinked in and out around a drawer that was sliding. */}
+        <button
+          type="button"
+          className={`rail-scrim${railCollapsed ? "" : " open"}`}
+          aria-label="Collapse sidebar"
+          tabIndex={railCollapsed ? -1 : 0}
+          aria-hidden={railCollapsed}
+          onClick={() => setRailCollapsed(true)}
+        />
 
         <Sidebar
           chats={chats}

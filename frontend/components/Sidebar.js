@@ -31,40 +31,39 @@ export default function Sidebar({
 
   return (
     <aside className="sidebar glass" aria-label="Conversations">
+      {/* Both controls stay mounted in both states. Swapping the brand between
+          a button and a div — and mounting/unmounting the chevron — destroyed
+          the very nodes the CSS was trying to transition, so the head popped no
+          matter how the rail animated. Now only attributes and classes change,
+          and the styles tween them.
+
+          Collapsed, the logo IS the expand control; a rail this narrow has no
+          room for a second button. Expanded, it is inert (disabled, so it also
+          leaves the tab order) and the chevron beside it does the collapsing. */}
       <div className="sidebar-head">
-        {/* Collapsed, the logo IS the expand control — a rail this narrow has
-            no room for a second button, and the mark is the obvious thing to
-            reach for. Expanded, it is just the wordmark and the chevron next
-            to it does the collapsing. */}
-        {collapsed ? (
-          <button
-            type="button"
-            className="brand is-expander"
-            onClick={onToggleCollapse}
-            aria-expanded={false}
-            aria-label="Expand sidebar"
-            title="Expand sidebar"
-          >
-            <span className="brand-mark" aria-hidden="true">Æ</span>
-          </button>
-        ) : (
-          <>
-            <div className="brand">
-              <span className="brand-mark" aria-hidden="true">Æ</span>
-              <span className="hide-on-collapse">AIxia</span>
-            </div>
-            <button
-              type="button"
-              className="rail-toggle"
-              onClick={onToggleCollapse}
-              aria-expanded
-              aria-label="Collapse sidebar"
-              title="Collapse sidebar"
-            >
-              <ChevronLeftIcon />
-            </button>
-          </>
-        )}
+        <button
+          type="button"
+          className={`brand${collapsed ? " is-expander" : ""}`}
+          onClick={onToggleCollapse}
+          disabled={!collapsed}
+          aria-expanded={!collapsed}
+          aria-label="Expand sidebar"
+          title={collapsed ? "Expand sidebar" : undefined}
+        >
+          <span className="brand-mark" aria-hidden="true">Æ</span>
+          <span className="brand-word hide-on-collapse">AIxia</span>
+        </button>
+        <button
+          type="button"
+          className="rail-toggle"
+          onClick={onToggleCollapse}
+          tabIndex={collapsed ? -1 : 0}
+          aria-hidden={collapsed}
+          aria-label="Collapse sidebar"
+          title="Collapse sidebar"
+        >
+          <ChevronLeftIcon />
+        </button>
       </div>
 
       <button type="button" className="new-chat-btn" onClick={onNewChat} title="New conversation">

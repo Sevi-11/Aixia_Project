@@ -35,9 +35,21 @@ class DocumentAdmin(admin.ModelAdmin):
             try:
                 chunk_count = ingest_document(document)
             except Exception as exc:
+                # The embedding provider's quota error is the one failure that
+                # is both common and self-inflicted, and its raw form is a wall
+                # of JSON. Say the actionable part instead: wait, then retry.
+                detail = str(exc)
+                if 'RESOURCE_EXHAUSTED' in detail or '429' in detail:
+                    detail = (
+                        'hit the embedding quota (100 chunks per minute). '
+                        'Nothing was saved. Wait a full '
+                        'minute WITHOUT retrying -- a failed attempt still '
+                        'spends quota, so retrying early keeps the window '
+                        'full -- then ingest this document on its own.'
+                    )
                 self.message_user(
                     request,
-                    f'{document.original_filename}: ingestion failed - {exc}',
+                    f'{document.original_filename}: {detail}',
                     messages.ERROR,
                 )
             else:

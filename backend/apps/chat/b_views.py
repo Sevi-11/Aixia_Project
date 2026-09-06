@@ -55,6 +55,9 @@ def _serialize_sources(sources):
             "content": s.page_content,
             "document_id": s.metadata.get("document_id"),
             "original_filename": s.metadata.get("original_filename"),
+            # 0-based, straight off the PDF loader; the UI adds one before it
+            # shows a page number to a reader.
+            "page": s.metadata.get("page"),
         }
         for s in sources
     ]

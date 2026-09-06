@@ -148,13 +148,17 @@ export default function Composer({ value, onChange, onSend, onExport, disabled, 
           </button>
         </div>
 
-        {attach ? (
-          <p className={`attach-status${attach.state === "error" ? " is-error" : ""}${attach.state === "done" ? " is-done" : ""}`} role="status">
-            {attach.message}
+        {/* Both lines stay mounted and stacked so the upload status crossfades
+            over the keyboard hint instead of the two swapping instantly. */}
+        <div className="label-swap">
+          <p className={`composer-hint${attach ? " is-hidden" : ""}`}>Enter to send · Shift + Enter for a new line</p>
+          <p
+            className={`attach-status${attach ? "" : " is-hidden"}${attach?.state === "error" ? " is-error" : ""}${attach?.state === "done" ? " is-done" : ""}`}
+            role="status"
+          >
+            {attach?.message}
           </p>
-        ) : (
-          <p className="composer-hint">Enter to send · Shift + Enter for a new line</p>
-        )}
+        </div>
       </div>
     </div>
   );

@@ -2,13 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import ThinkingBubble from "./ThinkingBubble";
-import { CheckIcon, CopyIcon, RegenerateIcon, ThumbDownIcon, ThumbUpIcon } from "./icons";
+import Markdown from "./Markdown";
+import { sourceLabel } from "./sourceLabel";
+import { CheckIcon, CopyIcon, IconSwap, RegenerateIcon, ThumbDownIcon, ThumbUpIcon } from "./icons";
 
-export function sourceLabel(source) {
-  const name = source?.original_filename || "source";
-  // page comes off the PDF loader 0-based; readers count from 1.
-  return Number.isInteger(source?.page) ? `${name} · p.${source.page + 1}` : name;
-}
 
 export default function MessageRow({
   message,
@@ -42,7 +39,16 @@ export default function MessageRow({
       { threshold: 0.15 },
     );
     observer.observe(node);
-    return () => observer.disconnect();
+    // The reveal starts at opacity 0, so anything that stops the observer from
+    // reporting leaves the message permanently invisible — a backgrounded tab,
+    // a prerender, a browser that never schedules the callback. Falling open
+    // after a beat costs a scroll-reveal on rows nobody is looking at and
+    // guarantees the answer is never lost behind a stalled animation.
+    const fallback = setTimeout(() => setVisible(true), 600);
+    return () => {
+      observer.disconnect();
+      clearTimeout(fallback);
+    };
   }, []);
 
   async function handleCopy() {
@@ -65,7 +71,7 @@ export default function MessageRow({
           <ThinkingBubble />
         ) : (
           <div className={`bubble${isError ? " is-error" : ""}`}>
-            <MessageContent content={message.content} sources={sources} onCiteClick={onOpenSources} />
+            <Markdown content={message.content} sources={sources} onCiteClick={onOpenSources} />
             {isStreaming && <span className="stream-caret" aria-hidden="true" />}
           </div>
         )}
@@ -90,7 +96,10 @@ export default function MessageRow({
         {!isUser && !isStreaming && !showThinking && (
           <div className="msg-actions">
             <button type="button" className="msg-action" onClick={handleCopy} aria-label="Copy response" title={copied ? "Copied" : "Copy"}>
-              {copied ? <CheckIcon /> : <CopyIcon />}
+              <IconSwap alt={copied}>
+                <CopyIcon />
+                <CheckIcon />
+              </IconSwap>
             </button>
             {isLast && !isError && (
               <button type="button" className="msg-action" onClick={onRegenerate} aria-label="Regenerate response" title="Regenerate">
@@ -136,55 +145,4 @@ export default function MessageRow({
       </div>
     </div>
   );
-}
-
-function MessageContent({ content, sources, onCiteClick }) {
-  const lines = content.split(/\r?\n/);
-  const blocks = [];
-  let index = 0;
-
-  while (index < lines.length) {
-    const line = lines[index];
-    const bullet = line.match(/^\s*[-*+]\s+(.+)$/);
-    const numbered = line.match(/^\s*\d+[.)]\s+(.+)$/);
-
-    if (bullet || numbered) {
-      const items = [];
-      const ordered = Boolean(numbered);
-      while (index < lines.length) {
-        const match = lines[index].match(ordered ? /^\s*\d+[.)]\s+(.+)$/ : /^\s*[-*+]\s+(.+)$/);
-        if (!match) break;
-        items.push(<li key={index}>{formatInline(match[1], sources, onCiteClick)}</li>);
-        index += 1;
-      }
-      const List = ordered ? "ol" : "ul";
-      blocks.push(<List key={`list-${index}`}>{items}</List>);
-      continue;
-    }
-
-    if (line.trim()) blocks.push(<p key={`paragraph-${index}`}>{formatInline(line, sources, onCiteClick)}</p>);
-    index += 1;
-  }
-
-  return <>{blocks}</>;
-}
-
-function formatInline(text, sources = [], onCiteClick) {
-  const parts = text.split(/(\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_|`[^`]+`|\[\d+\])/g);
-  return parts.map((part, index) => {
-    if (/^\*\*.*\*\*$/.test(part) || /^__.*__$/.test(part)) return <strong key={index}>{part.slice(2, -2)}</strong>;
-    if (/^\*.*\*$/.test(part) || /^_.*_$/.test(part)) return <em key={index}>{part.slice(1, -1)}</em>;
-    if (/^`.*`$/.test(part)) return <code key={index}>{part.slice(1, -1)}</code>;
-    const citation = part.match(/^\[(\d+)\]$/);
-    if (citation) {
-      const n = Number(citation[1]);
-      if (n < 1 || n > sources.length) return part;
-      return (
-        <button key={index} type="button" className="cite-ref" onClick={() => onCiteClick?.(n - 1)} title={`Source ${n}: ${sourceLabel(sources[n - 1])}`}>
-          {n}
-        </button>
-      );
-    }
-    return part;
-  });
 }

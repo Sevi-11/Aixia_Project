@@ -4,7 +4,7 @@ import json
 import logging
 from langchain_groq import ChatGroq
 from langchain_core.output_parsers import StrOutputParser
-from .e_prompts import context_prompt, suggestions_prompt
+from .e_prompts import context_prompt, suggestions_prompt, title_prompt
 from .g_stream_filter import strip_thinking_stream
 
 logger = logging.getLogger(__name__)
@@ -27,6 +27,13 @@ ANSWER_MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "700"))
 # every token reserved here is one the answer cannot use in the same minute --
 # two calls share one per-minute allowance.
 SUGGESTION_MAX_TOKENS = int(os.getenv("GROQ_SUGGESTION_MAX_TOKENS", "200"))
+
+# A title is a handful of words, and it is only ever generated once per
+# conversation (on the opening turn). Keeping the reservation this small
+# matters: the free tier rejects a request up front when max_tokens exceeds
+# what is left of the per-minute ceiling, and on that first turn this call
+# shares the minute with the answer and the follow-up suggestions.
+TITLE_MAX_TOKENS = int(os.getenv("GROQ_TITLE_MAX_TOKENS", "24"))
 
 # qwen3.6 is a reasoning model, and its <think> block is billed as output
 # against that same cap even though _strip_thinking discards it before the user
@@ -134,3 +141,41 @@ def generate_followup_suggestions(question: str, answer: str, history: list, llm
 
     suggestions = [s.strip() for s in parsed if isinstance(s, str) and s.strip()]
     return suggestions[:max_suggestions]
+
+
+TITLE_WRAPPERS = '"\'`*#'
+
+
+def generate_title(question: str, llm=None, max_words: int = 6) -> str:
+    """Best-effort short summary of what a conversation is about.
+
+    Never raises: the caller falls back to a truncated question, so a title is
+    a nicety that must not be able to break — or delay — a chat response.
+    """
+    question = (question or "").strip()
+    if not question:
+        return ""
+
+    llm = llm or get_llm(TITLE_MAX_TOKENS)
+    chain = title_prompt | llm | StrOutputParser()
+    try:
+        raw = chain.invoke({"question": question})
+    except Exception:
+        logger.exception("Title generation failed")
+        return ""
+
+    title = _strip_thinking(raw).strip()
+    # Models like to wrap a title in quotes or lead with "Title:" no matter how
+    # firmly the prompt says not to.
+    title = title.splitlines()[0].strip() if title else ""
+    title = re.sub(r'^(title|answer)\s*[:\-]\s*', '', title, flags=re.IGNORECASE)
+    title = title.strip().strip(TITLE_WRAPPERS).strip()
+    title = re.sub(r'[.]+$', '', title).strip()
+
+    if not title:
+        return ""
+
+    words = title.split()
+    if len(words) > max_words:
+        title = " ".join(words[:max_words])
+    return title[:60]

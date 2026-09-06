@@ -16,7 +16,7 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8000:8000"
+      - "${AIXIA_BACKEND_PORT:-8001}:8000"
     env_file: ./backend/.env
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/aixia_db
@@ -35,7 +35,9 @@ services:
     build:
       context: ./frontend
     ports:
-      - "3000:3000"
+      - "${AIXIA_FRONTEND_PORT:-3000}:3000"
+    environment:
+      BACKEND_INTERNAL_URL: http://backend:8000
     depends_on:
       - backend
 

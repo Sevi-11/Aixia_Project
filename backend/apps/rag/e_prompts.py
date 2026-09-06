@@ -139,6 +139,18 @@ Avoid excessively wide tables.
 
 If a table would be difficult to read, use bullet points instead.
 
+## 8. CITATIONS
+
+The context below is split into numbered chunks like `[1] ...`, `[2] ...`.
+
+When a statement in your answer is drawn from a specific chunk, cite it inline immediately after the relevant sentence using square brackets, e.g. `Sean has 5 years of ML experience [1].`
+
+Rules:
+- Only cite chunk numbers that actually appear in the Context section below.
+- Use the exact numbers shown (do not renumber or invent them; for multiple sources write [1][2], not [1,2]).
+- Do not cite a chunk for information it does not support.
+- Do not add a "Sources" or "References" list at the end — citations are inline only.
+
 Conversation so far:
 {history}
 
@@ -149,5 +161,21 @@ Question:
 {question}
 
 Answer:
+""")
+
+suggestions_prompt = ChatPromptTemplate.from_template("""
+Based on the conversation so far, propose 2 to 3 short natural follow-up questions the user might ask next about Sean's background.
+
+Conversation so far:
+{history}
+
+Most recent question:
+{question}
+
+Most recent answer:
+{answer}
+
+Respond with ONLY a JSON array of plain strings, nothing else. No markdown, no code fences, no explanation.
+Example: ["Question one?", "Question two?"]
 """)
 

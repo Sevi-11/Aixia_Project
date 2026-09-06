@@ -9,4 +9,5 @@ class ChatMessageSerializer(serializers.ModelSerializer):
 class ChatRequestSerializer(serializers.Serializer):
     session_id = serializers.IntegerField(required=False, allow_null=True)
     session_token = serializers.CharField(required=False, allow_blank=False)
-    question = serializers.CharField()
+    question = serializers.CharField(required=False, allow_blank=True, default="")
+    regenerate = serializers.BooleanField(required=False, default=False)

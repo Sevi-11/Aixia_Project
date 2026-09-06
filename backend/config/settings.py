@@ -66,7 +66,11 @@ def database_from_url(database_url):
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env_bool('DJANGO_DEBUG', default=True)
+# Fails closed: a host that does not explicitly ask for debug gets production
+# behaviour. Every local entrypoint (backend/.env, docker-compose.yml) already
+# sets DJANGO_DEBUG explicitly, so this only changes what an *unconfigured*
+# environment does -- and there it should never be the permissive one.
+DEBUG = env_bool('DJANGO_DEBUG', default=False)
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
@@ -76,9 +80,20 @@ if not SECRET_KEY:
     else:
         raise RuntimeError('DJANGO_SECRET_KEY must be set when DJANGO_DEBUG=False.')
 
-_LAN_IP = get_lan_ip()
+# Reaching the dev server from a phone on the same Wi-Fi is a development
+# affordance: it costs a socket call at import time and means nothing on a PaaS
+# box, where the only valid hostname is the one the platform assigns.
+_LAN_IP = get_lan_ip() if DEBUG else None
 _extra_hosts = [f'{_LAN_IP}', f'{_LAN_IP}:3000'] if _LAN_IP else []
+
+# Render injects the service's public hostname into every container. Reading it
+# here breaks the chicken-and-egg of the first deploy -- you cannot put the URL
+# in ALLOWED_HOSTS before the service exists to have one.
+RENDER_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME')
+
 ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1,aixia') + _extra_hosts
+if RENDER_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_HOSTNAME)
 
 
 # Application definition
@@ -119,6 +134,34 @@ if _LAN_IP:
         f'http://{_LAN_IP}:3000',
         f'http://{_LAN_IP}',
     ]
+
+# Unlike ALLOWED_HOSTS these need the scheme. With DEBUG off and no entry here,
+# admin login and every session-authenticated POST fail CSRF verification --
+# the single most common "it worked locally" deployment failure for Django.
+CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS')
+if RENDER_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_HOSTNAME}')
+
+# Render terminates TLS at its edge and forwards plain HTTP inside the network,
+# so this header is the only way Django can tell the original request was
+# HTTPS. Without it request.is_secure() is always False, which makes the
+# secure-cookie and redirect settings below either inert or an infinite loop.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
+if not DEBUG:
+    SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', default=True)
+    # Render's own health check reaches the container over plain HTTP on the
+    # internal port. Without this exemption the redirect above answers it with
+    # a 301, Render reads that as unhealthy, and it kills a working deploy.
+    SECURE_REDIRECT_EXEMPT = [r'^healthz/$']
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
 
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -206,3 +249,16 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Django 5.1 removed STATICFILES_STORAGE/DEFAULT_FILE_STORAGE; STORAGES is the
+# only supported form on 6.x. WhiteNoise was already in MIDDLEWARE but with no
+# backend configured it was serving static files unhashed and uncompressed.
+# The 'default' entry is where Supabase object storage will slot in later.
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}

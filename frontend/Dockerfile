@@ -1,8 +1,5 @@
 FROM node:20-alpine AS builder
 
-ARG NEXT_PUBLIC_API_ORIGIN
-ENV NEXT_PUBLIC_API_ORIGIN=$NEXT_PUBLIC_API_ORIGIN
-
 WORKDIR /app
 
 COPY package.json package-lock.json ./

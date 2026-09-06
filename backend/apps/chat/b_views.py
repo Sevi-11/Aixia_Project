@@ -1,4 +1,5 @@
 import json
+import logging
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -12,7 +13,9 @@ from .a_serializers import ChatRequestSerializer, ChatMessageSerializer
 
 from rag.c_embeddings import get_embeddings
 from rag.d_vectorstore import load_vectorstore
-from rag.f_chains import answer_question, answer_question_stream
+from rag.f_chains import answer_question, answer_question_stream, generate_followup_suggestions
+
+logger = logging.getLogger(__name__)
 
 MAX_HISTORY_MESSAGES = 20
 SESSION_SALT = 'aixia-chat-session'
@@ -72,7 +75,10 @@ class ChatView(APIView):
 
         session_id = serializer.validated_data.get('session_id')
         session_token = serializer.validated_data.get('session_token')
-        question = serializer.validated_data['question']
+        question = serializer.validated_data.get('question', '')
+
+        if not question:
+            return Response({'error': 'question is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         session, error_response = _resolve_session(session_id, session_token)
         if error_response:
@@ -105,15 +111,33 @@ class ChatStreamView(APIView):
 
         session_id = serializer.validated_data.get('session_id')
         session_token = serializer.validated_data.get('session_token')
-        question = serializer.validated_data['question']
+        question = serializer.validated_data.get('question', '')
+        regenerate = serializer.validated_data.get('regenerate', False)
 
         session, error_response = _resolve_session(session_id, session_token)
         if error_response:
             return error_response
 
-        prior_messages = _prior_messages(session)
-
-        ChatMessage.objects.create(session=session, role='user', content=question)
+        if regenerate:
+            # [assistant, user], most-recent-first: the turn being redone.
+            recent = list(session.messages.order_by('-created_at')[:2])
+            if len(recent) < 2 or recent[0].role != 'assistant' or recent[1].role != 'user':
+                return Response(
+                    {'error': 'Nothing to regenerate for this session.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            stale_assistant, last_user = recent
+            question = last_user.content
+            stale_assistant.delete()
+            # Drop the trailing entry (last_user, now the most recent DB row)
+            # so history matches the normal-send shape exactly: the current
+            # question lives only in `question`, never duplicated in `history`.
+            prior_messages = _prior_messages(session)[:-1]
+        else:
+            if not question:
+                return Response({'error': 'question is required'}, status=status.HTTP_400_BAD_REQUEST)
+            prior_messages = _prior_messages(session)
+            ChatMessage.objects.create(session=session, role='user', content=question)
 
         embedder = get_embeddings()
         vectorstore = load_vectorstore(embedder)
@@ -133,6 +157,15 @@ class ChatStreamView(APIView):
                 full_answer = "".join(answer_parts)
                 if full_answer:
                     ChatMessage.objects.create(session=session, role='assistant', content=full_answer)
+
+            suggestions = []
+            if full_answer:
+                try:
+                    suggestions = generate_followup_suggestions(question, full_answer, prior_messages)
+                except Exception:
+                    logger.exception("Follow-up suggestion generation raised unexpectedly")
+
+            yield json.dumps({"type": "suggestions", "suggestions": suggestions}) + "\n"
 
             yield json.dumps({
                 "type": "done",

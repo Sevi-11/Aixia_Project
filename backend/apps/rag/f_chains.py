@@ -1,9 +1,10 @@
 import os
 import re
+import json
 import logging
 from langchain_groq import ChatGroq
 from langchain_core.output_parsers import StrOutputParser
-from .e_prompts import context_prompt
+from .e_prompts import context_prompt, suggestions_prompt
 from .g_stream_filter import strip_thinking_stream
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,10 @@ def get_llm():
     )
 
 def format_docs(docs):
-    return "\n\n".join([doc.page_content for doc in docs])
+    # Numbering here MUST stay 1-based and in the same order as retrieved_docs,
+    # because _serialize_sources() (chat/b_views.py) and the frontend's [n]
+    # citation parser both assume sources[n-1] == chunk numbered [n].
+    return "\n\n".join(f"[{i}] {doc.page_content}" for i, doc in enumerate(docs, start=1))
 
 def format_history(messages):
 
@@ -75,3 +79,34 @@ def answer_question_stream(vectorstore, question: str, history: list, k: int = 3
     visible_stream = strip_thinking_stream(chain.stream(chain_input))
 
     return retrieved_docs, visible_stream
+
+def generate_followup_suggestions(question: str, answer: str, history: list, llm=None, max_suggestions: int = 3) -> list:
+    """Best-effort follow-up questions. Never raises — returns [] on any
+    model or parsing failure so it can never break the main chat response.
+    """
+    if not answer:
+        return []
+    llm = llm or get_llm()
+    chain = suggestions_prompt | llm | StrOutputParser()
+    try:
+        raw = chain.invoke({"question": question, "answer": answer, "history": format_history(history or [])})
+    except Exception:
+        logger.exception("Follow-up suggestion generation failed")
+        return []
+
+    raw = _strip_thinking(raw).strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        raw = raw.split("\n", 1)[-1] if "\n" in raw else raw
+
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("Follow-up suggestions were not valid JSON: %r", raw)
+        return []
+
+    if not isinstance(parsed, list):
+        return []
+
+    suggestions = [s.strip() for s in parsed if isinstance(s, str) and s.strip()]
+    return suggestions[:max_suggestions]

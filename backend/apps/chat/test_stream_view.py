@@ -1,9 +1,11 @@
 import json
 from unittest.mock import patch
 
+from django.core import signing
 from django.test import TestCase
 
-from .models import ChatSession
+from .b_views import SESSION_SALT
+from .models import ChatSession, ChatMessage
 
 
 class FakeDoc:
@@ -17,16 +19,18 @@ class ChatStreamViewTests(TestCase):
         content = b"".join(response.streaming_content).decode("utf-8")
         return [json.loads(line) for line in content.splitlines() if line.strip()]
 
+    @patch("chat.b_views.generate_followup_suggestions")
     @patch("chat.b_views.answer_question_stream")
     @patch("chat.b_views.load_vectorstore")
     @patch("chat.b_views.get_embeddings")
-    def test_streams_sources_then_tokens_then_done(
-        self, mock_get_embeddings, mock_load_vectorstore, mock_answer_stream
+    def test_streams_sources_then_tokens_then_suggestions_then_done(
+        self, mock_get_embeddings, mock_load_vectorstore, mock_answer_stream, mock_suggestions
     ):
         mock_get_embeddings.return_value = object()
         mock_load_vectorstore.return_value = object()
         docs = [FakeDoc("Sean has ML experience.", 1, "cv.pdf")]
         mock_answer_stream.return_value = (docs, iter(["Hello", " world"]))
+        mock_suggestions.return_value = ["What else has Sean built?"]
 
         response = self.client.post(
             "/api/chat/stream/",
@@ -38,10 +42,20 @@ class ChatStreamViewTests(TestCase):
 
         assert events[0]["type"] == "sources"
         assert events[0]["sources"][0]["original_filename"] == "cv.pdf"
-        assert [e["content"] for e in events[1:-1]] == ["Hello", " world"]
+
+        token_events = [e for e in events if e["type"] == "token"]
+        assert [e["content"] for e in token_events] == ["Hello", " world"]
+
+        suggestion_events = [e for e in events if e["type"] == "suggestions"]
+        assert len(suggestion_events) == 1
+        assert suggestion_events[0]["suggestions"] == ["What else has Sean built?"]
+
         assert events[-1]["type"] == "done"
         assert "session_id" in events[-1]
         assert "session_token" in events[-1]
+        # suggestions must land after every token and before "done"
+        assert events.index(suggestion_events[0]) > events.index(token_events[-1])
+        assert events.index(suggestion_events[0]) < len(events) - 1
 
         session = ChatSession.objects.get(id=events[-1]["session_id"])
         messages = list(session.messages.order_by("created_at"))
@@ -61,3 +75,73 @@ class ChatStreamViewTests(TestCase):
 
         assert response.status_code == 403
         assert not hasattr(response, "streaming_content")
+
+    @patch("chat.b_views.generate_followup_suggestions")
+    @patch("chat.b_views.answer_question_stream")
+    @patch("chat.b_views.load_vectorstore")
+    @patch("chat.b_views.get_embeddings")
+    def test_regenerate_replaces_last_answer_without_duplicating_the_question(
+        self, mock_get_embeddings, mock_load_vectorstore, mock_answer_stream, mock_suggestions
+    ):
+        mock_get_embeddings.return_value = object()
+        mock_load_vectorstore.return_value = object()
+        mock_answer_stream.return_value = ([], iter(["New", " answer"]))
+        mock_suggestions.return_value = []
+
+        session = ChatSession.objects.create()
+        ChatMessage.objects.create(session=session, role="user", content="What is Sean's degree?")
+        ChatMessage.objects.create(session=session, role="assistant", content="He has a CS degree.")
+
+        response = self.client.post(
+            "/api/chat/stream/",
+            data=json.dumps({
+                "session_id": session.id,
+                "session_token": signing.dumps(session.id, salt=SESSION_SALT),
+                "regenerate": True,
+            }),
+            content_type="application/json",
+        )
+
+        events = self._ndjson_events(response)
+        assert events[-1]["type"] == "done"
+
+        messages = list(session.messages.order_by("created_at"))
+        assert [m.role for m in messages] == ["user", "assistant"]
+        assert messages[0].content == "What is Sean's degree?"
+        assert messages[-1].content == "New answer"
+
+        # The stale answer must not have been fed back into the LLM's history.
+        _, call_kwargs = mock_answer_stream.call_args
+        assert call_kwargs["history"] == []
+        assert mock_answer_stream.call_args.args[1] == "What is Sean's degree?"
+
+    def test_regenerate_400s_when_last_turn_has_no_answer_yet(self):
+        session = ChatSession.objects.create()
+        ChatMessage.objects.create(session=session, role="user", content="Pending question")
+
+        response = self.client.post(
+            "/api/chat/stream/",
+            data=json.dumps({
+                "session_id": session.id,
+                "session_token": signing.dumps(session.id, salt=SESSION_SALT),
+                "regenerate": True,
+            }),
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+
+    def test_regenerate_400s_on_a_session_with_no_messages(self):
+        session = ChatSession.objects.create()
+
+        response = self.client.post(
+            "/api/chat/stream/",
+            data=json.dumps({
+                "session_id": session.id,
+                "session_token": signing.dumps(session.id, salt=SESSION_SALT),
+                "regenerate": True,
+            }),
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400

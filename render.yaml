@@ -33,10 +33,10 @@ services:
     # length of a response, so a single-threaded worker would serve exactly one
     # conversation at a time. The raised timeout is the same story: a streamed
     # answer legitimately outlives the 30s default.
-    dockerCommand: >-
-      sh -c "python manage.py migrate --noinput &&
-      gunicorn config.wsgi:application --bind 0.0.0.0:8000
-      --workers 1 --threads 4 --timeout 120"
+    # A plain path, not an inline shell command. Render already runs this
+    # through a shell, so a self-wrapped sh -c "a && b" is read as one command
+    # name and dies with exit 127 before anything starts.
+    dockerCommand: /app/start.sh
 
     envVars:
       - key: DJANGO_DEBUG

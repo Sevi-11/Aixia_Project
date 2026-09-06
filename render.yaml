@@ -1,0 +1,94 @@
+# Render Blueprint for the Aixia backend.
+#
+# Create it from Dashboard -> New -> Blueprint, pointed at this repository.
+# Values marked "sync: false" are secrets: Render prompts for them during
+# Blueprint creation and they are never committed here. Render only prompts on
+# FIRST creation -- anything added later has to be set by hand in the dashboard.
+
+services:
+  - type: web
+    name: aixia-backend
+    runtime: docker
+    plan: free
+    # Same region as the Supabase project. Cross-region adds a round trip to
+    # every query, and on a free tier that latency is the whole budget.
+    region: oregon
+
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+
+    # Cheap liveness probe that does not touch the database, and is exempt from
+    # the HTTPS redirect -- Render probes over plain HTTP internally, and a 301
+    # would read as unhealthy and kill a working deploy.
+    healthCheckPath: /healthz/
+
+    # Migrations run here because Render's preDeployCommand is paid-tier only.
+    #
+    # One worker, not the Dockerfile's three: the free tier has 512 MB and each
+    # worker is a full copy of the app. Threads rather than processes because
+    # the chat endpoint streams -- a sync worker is tied up for the entire
+    # length of a response, so a single-threaded worker would serve exactly one
+    # conversation at a time. The raised timeout is the same story: a streamed
+    # answer legitimately outlives the 30s default.
+    dockerCommand: >-
+      sh -c "python manage.py migrate --noinput &&
+      gunicorn config.wsgi:application --bind 0.0.0.0:8000
+      --workers 1 --threads 4 --timeout 120"
+
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "False"
+
+      # A randomised, base64-encoded 256-bit value. Django's check --deploy
+      # warns under 50 characters and this is 44, but that threshold is a proxy
+      # for entropy -- 256 random bits comfortably exceeds what a 50-character
+      # passphrase carries. Letting Render generate it also means the secret
+      # never passes through a clipboard.
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+
+      # Supabase SESSION POOLER url -- port 5432 on the aws-N-<region>.pooler
+      # .supabase.com host. Not the direct connection Supabase shows first:
+      # that one is IPv6-only and Render cannot reach it. Session mode rather
+      # than transaction mode (6543) because langchain-postgres uses psycopg3,
+      # whose prepared statements break under transaction pooling.
+      - key: DATABASE_URL
+        sync: false
+
+      # Chat model.
+      - key: GROQ_API_KEY
+        sync: false
+      # f_chains.py has a fallback default, so production would boot without
+      # this -- but it would then quietly run a different model than local dev.
+      # Declared so the choice is explicit rather than implied.
+      - key: GROQ_MODEL
+        sync: false
+      # Embeddings. A different provider because Groq serves no embeddings
+      # endpoint.
+      - key: GOOGLE_API_KEY
+        sync: false
+
+      # ALLOWED_HOSTS is deliberately absent: settings.py already appends
+      # RENDER_EXTERNAL_HOSTNAME, which Render injects. Add it by hand only if
+      # you attach a custom domain.
+      #
+      # These two need the Vercel URL, which does not exist until the frontend
+      # is deployed -- so they are set on a second pass. CSRF_TRUSTED_ORIGINS
+      # requires the scheme (https://...), ALLOWED_HOSTS must not have one.
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+
+      # Supabase Storage, which speaks the S3 protocol. Without these, uploads
+      # land on the container filesystem and are destroyed on the next deploy.
+      - key: AWS_STORAGE_BUCKET_NAME
+        sync: false
+      - key: AWS_S3_ENDPOINT_URL
+        sync: false
+      - key: AWS_S3_REGION_NAME
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false

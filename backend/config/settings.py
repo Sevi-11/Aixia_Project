@@ -254,10 +254,42 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # only supported form on 6.x. WhiteNoise was already in MIDDLEWARE but with no
 # backend configured it was serving static files unhashed and uncompressed.
 # The 'default' entry is where Supabase object storage will slot in later.
+# Uploaded PDFs. A PaaS container's filesystem is ephemeral: anything written
+# to MEDIA_ROOT is discarded on the next deploy or wake from sleep, and the
+# failure is silent -- the database keeps rows pointing at files that no longer
+# exist. So when a bucket is configured we store media there; with the
+# variables unset, local disk stays the sensible default for development.
+AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
+
+if AWS_STORAGE_BUCKET_NAME:
+    _media_storage = {
+        'BACKEND': 'storages.backends.s3.S3Storage',
+        'OPTIONS': {
+            'bucket_name': AWS_STORAGE_BUCKET_NAME,
+            'endpoint_url': os.getenv('AWS_S3_ENDPOINT_URL'),
+            'region_name': os.getenv('AWS_S3_REGION_NAME'),
+            'access_key': os.getenv('AWS_ACCESS_KEY_ID'),
+            'secret_key': os.getenv('AWS_SECRET_ACCESS_KEY'),
+            # Supabase's S3 gateway only speaks path-style addressing. The
+            # virtual-host style boto3 prefers would resolve to a subdomain
+            # that does not exist, and fails as a DNS error rather than
+            # anything that points at the real cause.
+            'addressing_style': 'path',
+            # Serve uploads through expiring signed URLs instead of making the
+            # bucket public -- these are the user's own documents, and a
+            # guessable public URL is not an access control.
+            'querystring_auth': True,
+            # Two uploads of the same filename are two documents, not one
+            # overwriting the other.
+            'file_overwrite': False,
+            'default_acl': None,
+        },
+    }
+else:
+    _media_storage = {'BACKEND': 'django.core.files.storage.FileSystemStorage'}
+
 STORAGES = {
-    'default': {
-        'BACKEND': 'django.core.files.storage.FileSystemStorage',
-    },
+    'default': _media_storage,
     'staticfiles': {
         'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
     },

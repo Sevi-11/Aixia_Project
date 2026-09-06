@@ -2,7 +2,17 @@
 __pycache__
 *.pyc
 media/
-data/chroma_db/
 .git
 .idea
 staticfiles/
+
+# Downloaded sentence-transformers weights. Dead since embeddings moved to the
+# Gemini API, and 88 MB of a model the container will never load.
+.cache/
+
+# Test-only files: the production image has no test runner to run them with.
+conftest.py
+pytest.ini
+requirements-dev.txt
+.pytest_cache/
+**/test_*.py

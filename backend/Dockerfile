@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu --prefix=/install -r requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 COPY . .
 
@@ -27,7 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /install /usr/local
 COPY --from=builder /app /app
 
-RUN mkdir -p /app/media /app/data/chroma_db /app/staticfiles \
+RUN mkdir -p /app/media /app/staticfiles \
     && groupadd --system django \
     && useradd --system --gid django --home-dir /app --no-create-home django \
     && chown -R django:django /app

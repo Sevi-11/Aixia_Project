@@ -2,3 +2,11 @@ services:
   backend:
     volumes:
       - ./backend:/app
+
+  db:
+    # Published so the host-side test suite can reach it. The default host port
+    # deliberately avoids 5432, which is already in use on some dev machines
+    # (and by other projects' Postgres containers). Override via .env if 55432
+    # is taken too -- nothing is rebuilt, just `docker compose up -d`.
+    ports:
+      - "${AIXIA_DB_PORT:-55432}:5432"

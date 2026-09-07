@@ -8,10 +8,16 @@ const STATUS_LABEL = {
   offline: "AIxia is unreachable",
 };
 
-export default function AppHeader({ title, status, theme, onToggleTheme }) {
+export default function AppHeader({ title, status, theme, onToggleTheme, onOpenSidebar }) {
   return (
     <header className="app-header glass">
       <div className="header-left">
+        {/* Below 47.5rem there is no rail to hold the logo, so it lives here
+            and is the only way to reach conversation history. CSS hides it at
+            wider sizes, where the rail owns that job. */}
+        <button type="button" className="header-menu" onClick={onOpenSidebar} aria-label="Open sidebar" title="Open sidebar">
+          <span className="brand-mark" aria-hidden="true">Æ</span>
+        </button>
         <div className="header-title">{title}</div>
       </div>
       <div className="header-right">

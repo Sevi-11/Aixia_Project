@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AppHeader from "./AppHeader";
 import Composer from "./Composer";
-import GreetingBubble from "./GreetingBubble";
 import MessageRow from "./MessageRow";
 import Sidebar from "./Sidebar";
 import SourcesPanel from "./SourcesPanel";
@@ -515,19 +514,18 @@ export default function ChatWindow() {
           <div className="chat-scroll" ref={scrollRef} onScroll={handleScroll}>
             <div className="chat-thread">
               {messages.length === 0 ? (
-                <>
-                  <GreetingBubble />
-                  <div className="empty-hero">
-                    <div className="starter-grid">
-                      {starters.map((starter, index) => (
-                        <button key={starter} type="button" className="starter-card" onClick={() => sendMessage(starter)}>
-                          <span className="starter-index">0{index + 1}</span>
-                          {starter}
-                        </button>
-                      ))}
-                    </div>
+                <div className="empty-hero">
+                  <h1>Ask me anything about <em>Vince</em></h1>
+                  <p>I answer from his CV, projects and notes — grounded in the documents, with the sources you can check. He&apos;s Sean Vincent Vien V. Viñas on paper, but goes by Vince.</p>
+                  <div className="starter-grid">
+                    {starters.map((starter, index) => (
+                      <button key={starter} type="button" className="starter-card" onClick={() => sendMessage(starter)}>
+                        <span className="starter-index">0{index + 1}</span>
+                        {starter}
+                      </button>
+                    ))}
                   </div>
-                </>
+                </div>
               ) : (
                 rows.map(({ message, index, divider }) => (
                   <ThreadRow key={`${message.role}-${index}`} divider={divider}>

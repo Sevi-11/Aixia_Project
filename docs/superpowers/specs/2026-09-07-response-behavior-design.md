@@ -51,7 +51,7 @@ Both are evaluating. Neither wants warmth in place of information.
 | Shape | Answer-first: one direct sentence, then optional supporting detail. |
 | Length | 2–4 sentences by default. |
 | Creativity | Stoic answers (temp 0.2); creative extras — suggestions and titles (temp 0.7). |
-| Greeting | A static opening bubble that introduces AIxia and settles the name. Never generated. |
+| Greeting | Static hero copy that settles the name. Never generated, never a message. |
 | Pacing | Unchanged. The existing pacer calibration stays exactly as tuned. |
 | Misses | Decline plainly, then redirect to subjects the context does cover. |
 | Retrieval | `k=3`, unchanged — not bundled into a behaviour change. |
@@ -170,46 +170,43 @@ answer-first with a 2–4 sentence default should rarely approach it.
 
 ## Opening greeting
 
-Every new conversation opens with AIxia introducing itself, in an assistant
-bubble rather than a banner. This matches `aixia-chat-mockup.html:646`, where
-the canonical opening is AIxia speaking rather than a hero headline.
+The empty state carries the introduction, in the existing hero rather than a
+chat bubble. An earlier revision put it in an assistant bubble, matching
+`aixia-chat-mockup.html:646` where the canonical opening is AIxia speaking;
+that was built, reviewed in the browser, and rejected in favour of the hero.
+The hero states the naming rule without staging a message the assistant never
+actually sent.
 
-    Hi, I'm AIxia — assistant to Vince Viñas (Sean Vincent Vien V. Viñas on
-    paper; he goes by Vince).
+    Ask me anything about *Vince*
 
-    Ask me anything about his background, skills, or projects. I answer from
-    his CV and notes, with sources you can check.
+    I answer from his CV, projects and notes -- grounded in the documents,
+    with the sources you can check. He's Sean Vincent Vien V. Viñas on paper,
+    but goes by Vince.
 
-The naming note is a parenthetical, not a paragraph. It exists to head off a
-mismatch the visitor will genuinely hit — the CV and source citations carry the
-full legal name — without spending the first impression on a footnote.
+The naming note is the paragraph's second sentence, not its subject. It exists
+to head off a mismatch the visitor will genuinely hit -- the CV and source
+citations carry the full legal name -- without spending the first impression
+on a footnote.
 
 ### The greeting is static
 
-It is a constant in the frontend. It never goes through the LLM. Generating it
+It is markup in the frontend. It never goes through the LLM. Generating it
 would spend free-tier answer budget before the visitor has asked anything, add
 latency ahead of the first real reply, reword itself every session, and risk
 the model editorialising about his name. Fixed copy costs nothing and cannot
 drift.
 
-Consequences the implementation must honour:
-
-- Never POSTed to `/chat/stream`, and never written to `ChatMessage`.
-- Never included in the `history` passed to `format_history()` — it would
-  consume input tokens to tell the model something the prompt already says.
-- Not routed through `typingPacer`. A static string should appear at once;
-  faking a thinking beat for canned copy is a lie the reader can feel.
-- Carries no sources, no citations, and no follow-up suggestions.
-- Reappears with each new conversation, since it belongs to the empty state
-  rather than to the session record.
+Being hero markup rather than a message is what makes this structural: there
+is no message object, so nothing can POST it to `/chat/stream`, write it to
+`ChatMessage`, pad it into `format_history()`, or hang copy, regenerate, and
+feedback controls off it. Verified against the database: 0 of 137 stored
+messages contained greeting text.
 
 ### Effect on the empty state
 
-The greeting bubble replaces the `empty-hero` headline and paragraph in
-`ChatWindow.js:517`, which say the same thing less directly. The starter cards
-stay, rendered below the bubble. They are an app-only feature with a rotation
-pool and no equivalent in the mockup; dropping them would be a regression this
-change was not asked to make.
+None beyond the paragraph's second sentence. The `empty-hero` headline,
+padding, and the starter cards beneath it are unchanged. The two starter
+prompts that said "Sean" are renamed to "Vince".
 
 ## Out of scope
 
@@ -223,12 +220,9 @@ frontend change is the empty state described above.
 - `backend/apps/rag/e_prompts.py` — rewritten answer prompt; name change in suggestions prompt.
 - `backend/apps/rag/f_chains.py` — `temperature` parameter and the two constants; pass it at each call site.
 - `backend/apps/rag/test_f_chains_temperature.py` — new.
-- `frontend/components/GreetingBubble.js` — new; the static opening bubble.
-- `frontend/components/ChatWindow.js` — greeting bubble replaces the empty-hero
-  headline; starter cards retained beneath it. Also renames the two entries in
-  `STARTER_POOL` that currently say "Sean".
-- `frontend/app/globals.css` — `.empty-hero` top padding, which existed to give
-  the removed headline room.
+- `frontend/components/ChatWindow.js` — the naming sentence is added to the
+  empty-hero paragraph, and the two `STARTER_POOL` entries that said "Sean" are
+  renamed. The headline, the starter cards, and `globals.css` are untouched.
 - `backend/.env.example`, `README.md` — document the two new env vars alongside
   the existing `GROQ_API_KEY` / `GROQ_MODEL` entries.
 

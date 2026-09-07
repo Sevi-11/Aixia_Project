@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AppHeader from "./AppHeader";
 import Composer from "./Composer";
+import GreetingBubble from "./GreetingBubble";
 import MessageRow from "./MessageRow";
 import Sidebar from "./Sidebar";
 import SourcesPanel from "./SourcesPanel";
@@ -29,9 +30,9 @@ const HEALTH_INTERVAL_MS = 60_000;
 // Drawn from, not shown whole — each conversation opens with its own three, so
 // the empty hero is not the same wall of text every time you hit New.
 const STARTER_POOL = [
-  "What is Sean's machine learning experience?",
+  "What is Vince's machine learning experience?",
   "Tell me about his embedded systems background.",
-  "What projects has Sean worked on?",
+  "What projects has Vince worked on?",
   "What certifications does he hold?",
   "Where did he study, and how did he do?",
   "What does he use day to day — languages, frameworks, tools?",
@@ -514,18 +515,19 @@ export default function ChatWindow() {
           <div className="chat-scroll" ref={scrollRef} onScroll={handleScroll}>
             <div className="chat-thread">
               {messages.length === 0 ? (
-                <div className="empty-hero">
-                  <h1>Ask me anything about <em>Vince</em></h1>
-                  <p>I answer from his CV, projects and notes — grounded in the documents, with the sources you can check.</p>
-                  <div className="starter-grid">
-                    {starters.map((starter, index) => (
-                      <button key={starter} type="button" className="starter-card" onClick={() => sendMessage(starter)}>
-                        <span className="starter-index">0{index + 1}</span>
-                        {starter}
-                      </button>
-                    ))}
+                <>
+                  <GreetingBubble />
+                  <div className="empty-hero">
+                    <div className="starter-grid">
+                      {starters.map((starter, index) => (
+                        <button key={starter} type="button" className="starter-card" onClick={() => sendMessage(starter)}>
+                          <span className="starter-index">0{index + 1}</span>
+                          {starter}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                </>
               ) : (
                 rows.map(({ message, index, divider }) => (
                   <ThreadRow key={`${message.role}-${index}`} divider={divider}>

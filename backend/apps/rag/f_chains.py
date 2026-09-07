@@ -42,15 +42,28 @@ TITLE_MAX_TOKENS = int(os.getenv("GROQ_TITLE_MAX_TOKENS", "24"))
 # empty string when using a model that rejects the parameter entirely.
 REASONING_EFFORT = os.getenv("GROQ_REASONING_EFFORT", "none") or None
 
+# Answers stay near-deterministic: this bot's credibility rests on not drifting
+# from the retrieved context. Not zero, though -- ChatStreamView's regenerate
+# path deletes the previous answer and asks the same question again, and at 0
+# the model returns the same text, which reads as a broken button.
+ANSWER_TEMPERATURE = float(os.getenv("GROQ_TEMPERATURE", "0.2"))
 
-def get_llm(max_tokens: int = None):
+# Follow-up suggestions and conversation titles are the opposite problem:
+# variety IS the deliverable, and neither is grounded in retrieved context, so
+# there is nothing for a higher temperature to drift away from.
+EXTRAS_TEMPERATURE = float(os.getenv("GROQ_EXTRAS_TEMPERATURE", "0.7"))
+
+
+def get_llm(max_tokens: int = None, temperature: float = None):
     kwargs = {}
     if REASONING_EFFORT:
         kwargs["reasoning_effort"] = REASONING_EFFORT
     return ChatGroq(
         model=os.getenv("GROQ_MODEL", "qwen/qwen3.6-27b"),
         groq_api_key=os.getenv("GROQ_API_KEY"),
-        temperature=0,
+        # `is None`, not `or`: an explicit 0 is a legitimate request for full
+        # determinism and must not be quietly replaced by the default.
+        temperature=ANSWER_TEMPERATURE if temperature is None else temperature,
         max_tokens=max_tokens or ANSWER_MAX_TOKENS,
         **kwargs,
     )
@@ -117,7 +130,7 @@ def generate_followup_suggestions(question: str, answer: str, history: list, llm
     """
     if not answer:
         return []
-    llm = llm or get_llm(SUGGESTION_MAX_TOKENS)
+    llm = llm or get_llm(SUGGESTION_MAX_TOKENS, EXTRAS_TEMPERATURE)
     chain = suggestions_prompt | llm | StrOutputParser()
     try:
         raw = chain.invoke({"question": question, "answer": answer, "history": format_history(history or [])})
@@ -156,7 +169,7 @@ def generate_title(question: str, llm=None, max_words: int = 6) -> str:
     if not question:
         return ""
 
-    llm = llm or get_llm(TITLE_MAX_TOKENS)
+    llm = llm or get_llm(TITLE_MAX_TOKENS, EXTRAS_TEMPERATURE)
     chain = title_prompt | llm | StrOutputParser()
     try:
         raw = chain.invoke({"question": question})

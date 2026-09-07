@@ -53,7 +53,7 @@ export const viewport = {
 const THEME_BOOTSTRAP = `
 (function () {
   try {
-    var saved = localStorage.getItem('aixia-theme');
+    var saved = localStorage.getItem('aixia-theme-v2');
     document.documentElement.setAttribute('data-theme', saved === 'dark' ? 'dark' : 'light');
   } catch (e) {
     document.documentElement.setAttribute('data-theme', 'light');

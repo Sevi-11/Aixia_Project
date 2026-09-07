@@ -11,7 +11,11 @@ import { createTypingPacer } from "./typingPacer";
 
 const HISTORY_KEY = "aixia-chat-history";
 const RAIL_KEY = "aixia-sidebar-open";
-const THEME_KEY = "aixia-theme";
+// v2: the previous key was written on first paint even when the reader had
+// never touched the toggle, so it recorded the old dark default as though it
+// were a preference. Those values are indistinguishable from real choices,
+// so the key is retired rather than migrated.
+const THEME_KEY = "aixia-theme-v2";
 const EMPTY_MESSAGES = [];
 // Relative paths: Next.js proxies these to the backend server-side (see
 // next.config.mjs rewrites), so the browser never needs to know the backend's
@@ -123,7 +127,17 @@ export default function ChatWindow() {
   const [input, setInput] = useState("");
   const [loadingChats, setLoadingChats] = useState(new Set());
   const [railCollapsed, setRailCollapsed] = useState(false);
-  const [theme, setTheme] = useState("light");
+  // Seeded from the attribute the bootstrap script in layout.js set before
+  // first paint. Deriving it here rather than in an effect matters: an effect
+  // would land a second render that the theme effect below cannot tell apart
+  // from someone hitting the toggle, so it would crossfade and persist on
+  // every load. `document` is absent on the server, which yields the same
+  // "light" the server rendered.
+  const [theme, setTheme] = useState(() => (
+    typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark"
+      ? "dark"
+      : "light"
+  ));
   const [status, setStatus] = useState("connecting");
   // The panel keeps its sources after closing. Clearing them would swap the
   // cards for the empty state mid-slide-out, and the viewer would watch the
@@ -145,7 +159,6 @@ export default function ChatWindow() {
     setChats([fresh, ...restored]);
     setActiveChatId(fresh.id);
     setRailCollapsed(readStored(RAIL_KEY, "true") !== "true");
-    setTheme(readStored(THEME_KEY, "light") === "dark" ? "dark" : "light");
   }, []);
 
   useEffect(() => {
@@ -186,14 +199,12 @@ export default function ChatWindow() {
       return () => clearTimeout(done);
     }
 
+    // Adoption pass, not a choice: apply what is already on screen and write
+    // NOTHING. Persisting here is what pinned every first-time visitor to
+    // whatever the default happened to be on the day they first loaded.
     themeSettled.current = true;
     root.setAttribute("data-theme", theme);
     syncBrowserChrome(theme);
-    try {
-      localStorage.setItem(THEME_KEY, theme);
-    } catch {
-      // Storage can be disabled; the theme still applies for this session.
-    }
   }, [theme]);
 
   useEffect(() => {

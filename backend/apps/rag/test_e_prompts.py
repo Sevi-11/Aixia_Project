@@ -49,6 +49,17 @@ def test_prompt_forbids_headings():
     assert "Do not use headings." in _rendered()
 
 
+def test_structure_rules_are_requirements_not_permissions():
+    # Written as "may", both lost to "default to two to four sentences": ten
+    # tools arrived as a paragraph and a comparison came back as prose.
+    rendered = _rendered()
+
+    # Single-line fragments only: both rules wrap, and a substring assertion
+    # cannot span the newline plus its continuation indent.
+    assert "MUST present them as a bulleted list" in rendered
+    assert "with a Markdown table, one row per attribute" in rendered
+
+
 def test_prompt_tells_a_miss_to_redirect_rather_than_dead_end():
     assert "Name one or two subjects the Context does cover" in _rendered()
 
@@ -56,9 +67,11 @@ def test_prompt_tells_a_miss_to_redirect_rather_than_dead_end():
 def test_prompt_is_proportionate_to_the_answer_budget_it_governs():
     # Measured: the old policy rendered to 4,499 characters (~1,125 tokens at
     # roughly four characters per token) to govern a 700-token answer budget.
-    # The replacement measures 2,326 (~582). The ceiling here is a ratchet
-    # against the formatting menu creeping back, not a tight fit.
-    assert len(_rendered()) / 4 < 700
+    # The replacement measures ~2,750 (~690) after the structure rules had to
+    # be restated as requirements. The ceiling is a ratchet against the old
+    # formatting menu creeping back, not a tight fit -- but the headroom is
+    # thin now, so earn any further additions.
+    assert len(_rendered()) / 4 < 800
 
 
 def test_suggestions_prompt_uses_the_professional_name():

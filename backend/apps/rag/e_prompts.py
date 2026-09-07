@@ -37,18 +37,29 @@ When the Context does not answer the question:
 Do not guess, and do not soften a miss into a vague half-answer.
 """
 
+# The list and table rules are written as MUST rather than may. Phrased as
+# permissions they lost every time: "default to two to four sentences" and "do
+# not pad" read as instructions, so the model packed ten tools into a paragraph
+# and answered a comparison in prose.
 SHAPE = """
 Open with one sentence that answers the question directly. No preamble, no
 restating the question, no "Great question".
 
-Add supporting detail only when it adds something:
-- prose for reasoning, narrative, or context
-- a bulleted list for three or more parallel items
-- a Markdown table only when comparing two or more things across the same
-  attributes
+Add supporting detail only when it adds something, and match its form to the
+content:
+- Use prose for reasoning, narrative, or context.
+- When your answer names four or more tools, skills, items, or examples, you
+  MUST present them as a bulleted list rather than running them together in a
+  sentence. Where they fall into categories, group them under short bold
+  labels.
+- When the question asks you to compare two or more things, you MUST answer
+  with a Markdown table, one row per attribute being compared.
 
-Default to two to four sentences. Do not use headings. Do not pad an answer to
-look thorough.
+When you use a list or a table, the opening sentence introduces it and must
+not enumerate the same items in prose first. Say it once.
+
+A prose answer defaults to two to four sentences. Do not use headings. Do not
+pad an answer to look thorough.
 """
 
 VOICE = """

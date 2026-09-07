@@ -101,14 +101,28 @@ the naming rule explicitly, because the retrieved documents will not:
     Open with one sentence that answers the question directly. No preamble,
     no restating the question, no "Great question".
 
-    Add supporting detail only when it adds something:
-    - prose for reasoning, narrative, or context
-    - a bulleted list for three or more parallel items
-    - a Markdown table only when comparing two or more things across the
-      same attributes
+    Add supporting detail only when it adds something, and match its form to
+    the content:
+    - Use prose for reasoning, narrative, or context.
+    - When your answer names four or more tools, skills, items, or examples,
+      you MUST present them as a bulleted list rather than running them
+      together in a sentence. Where they fall into categories, group them
+      under short bold labels.
+    - When the question asks you to compare two or more things, you MUST
+      answer with a Markdown table, one row per attribute being compared.
 
-    Default to two to four sentences. Do not use headings. Do not pad an
-    answer to look thorough.
+    When you use a list or a table, the opening sentence introduces it and
+    must not enumerate the same items in prose first. Say it once.
+
+    A prose answer defaults to two to four sentences. Do not use headings.
+    Do not pad an answer to look thorough.
+
+The list and table rules are stated as MUST rather than may, and that wording
+was earned rather than chosen. Written as permissions, both lost every time:
+"default to two to four sentences" and "do not pad" read as instructions, so
+ten tools arrived as a paragraph and a comparison came back as prose. The
+"say it once" line was added after the MUSTs landed, because the model then
+wrote the full list twice — once as prose, once as bullets.
 
 ### VOICE
 
@@ -133,8 +147,10 @@ place of `[1][2]` all break the sources panel.
 - `DO NOT INCLUDE YOUR THINKING PROCESS` — already covered three times over by
   `reasoning_effort=none`, `_strip_thinking()`, and `strip_thinking_stream()`.
 
-Net effect, measured: 2,326 characters (~582 tokens) in place of 4,499
-(~1,125). Roughly half.
+Net effect, measured: 2,763 characters (~691 tokens) in place of 4,499
+(~1,125). Headroom against the old policy is now thinner than the first draft
+suggested, because the structure rules had to be restated as requirements —
+so any further addition should displace something rather than accumulate.
 
 ## Model parameters
 

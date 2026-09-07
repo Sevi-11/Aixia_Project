@@ -97,6 +97,15 @@ function readStored(key, fallback) {
   }
 }
 
+// Safari tints its status-bar strip and toolbars with <meta name="theme-color">.
+// It is emitted as a static light value (see layout.js), so toggling the theme
+// has to rewrite it or the chrome ends up fighting the page.
+const CHROME_TINT = { light: "#F4F1EA", dark: "#0A1128" };
+
+function syncBrowserChrome(theme) {
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", CHROME_TINT[theme] || CHROME_TINT.light);
+}
+
 function dayLabel(timestamp) {
   const date = new Date(timestamp);
   const today = new Date();
@@ -114,7 +123,7 @@ export default function ChatWindow() {
   const [input, setInput] = useState("");
   const [loadingChats, setLoadingChats] = useState(new Set());
   const [railCollapsed, setRailCollapsed] = useState(false);
-  const [theme, setTheme] = useState("dark");
+  const [theme, setTheme] = useState("light");
   const [status, setStatus] = useState("connecting");
   // The panel keeps its sources after closing. Clearing them would swap the
   // cards for the empty state mid-slide-out, and the viewer would watch the
@@ -136,7 +145,7 @@ export default function ChatWindow() {
     setChats([fresh, ...restored]);
     setActiveChatId(fresh.id);
     setRailCollapsed(readStored(RAIL_KEY, "true") !== "true");
-    setTheme(readStored(THEME_KEY, "dark") === "light" ? "light" : "dark");
+    setTheme(readStored(THEME_KEY, "light") === "dark" ? "dark" : "light");
   }, []);
 
   useEffect(() => {
@@ -168,6 +177,7 @@ export default function ChatWindow() {
       void root.offsetHeight;
       const done = setTimeout(() => root.classList.remove("theme-transition"), 460);
       root.setAttribute("data-theme", theme);
+      syncBrowserChrome(theme);
       try {
         localStorage.setItem(THEME_KEY, theme);
       } catch {
@@ -178,6 +188,7 @@ export default function ChatWindow() {
 
     themeSettled.current = true;
     root.setAttribute("data-theme", theme);
+    syncBrowserChrome(theme);
     try {
       localStorage.setItem(THEME_KEY, theme);
     } catch {

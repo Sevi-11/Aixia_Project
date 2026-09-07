@@ -1169,6 +1169,21 @@ button, textarea, input { font: inherit; color: inherit; }
   .composer-hint, .attach-status { font-size: 0.6rem; }
 }
 
+/* Touch devices: iOS Safari ZOOMS THE PAGE IN when a text field smaller than
+   16px receives focus, and does not zoom back out afterwards -- which is why
+   the app came back zoomed on later visits. The composer computes to 13.2px
+   (0.92rem against the 90% root) and the rename field to 11.2px, so both trip
+   it. 16px is the documented threshold and the only fix that does not involve
+   `maximum-scale=1` / `user-scalable=no`, which would take pinch-zoom away
+   from everyone to work around a bug affecting one browser.
+
+   Keyed on pointer rather than width so it also covers tablets, which zoom the
+   same way at viewports far wider than a phone's. */
+@media (pointer: coarse) {
+  .composer-input { font-size: 16px; }
+  .history-rename { font-size: 16px; }
+}
+
 /* Short viewports (landscape phones): the composer's 8.5rem of bottom padding
    plus the hero would leave nothing readable, so tighten both. */
 @media (max-height: 34rem) {

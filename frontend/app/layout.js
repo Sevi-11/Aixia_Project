@@ -47,17 +47,33 @@ export const viewport = {
   interactiveWidget: "resizes-content",
 };
 
-// Runs before first paint, so a returning visitor never sees the wrong palette
-// flash before React hydrates and reads their saved choice. Light is the
-// default, so anything unreadable from storage falls back to light.
-const THEME_BOOTSTRAP = `
+// Runs before first paint. Both of these are decisions the server cannot make
+// -- one depends on storage, the other on viewport width -- so resolving them
+// in React would mean painting a guess and correcting it after hydration. The
+// visible cost of that is a palette flash, or a full-screen drawer that flaps
+// open and shut on every phone load. CSS keys off these attributes for the
+// pre-hydration frame; ChatWindow adopts them on mount and then owns the state.
+//
+// iPad mini portrait is 744px. At or above it the sidebar has room to sit in
+// the layout and starts open; below it the sidebar is an overlay, and an
+// overlay must never be covering the page on arrival.
+const BOOTSTRAP = `
 (function () {
+  var root = document.documentElement;
+  var theme = 'light';
+  var collapsed = window.innerWidth < 744;
   try {
-    var saved = localStorage.getItem('aixia-theme-v2');
-    document.documentElement.setAttribute('data-theme', saved === 'dark' ? 'dark' : 'light');
+    if (localStorage.getItem('aixia-theme-v2') === 'dark') theme = 'dark';
+    if (!collapsed) {
+      var rail = localStorage.getItem('aixia-sidebar-open');
+      collapsed = rail === null ? false : rail !== 'true';
+    }
   } catch (e) {
-    document.documentElement.setAttribute('data-theme', 'light');
+    // Storage can be unavailable (private mode, blocked cookies); the
+    // width-derived default above still stands.
   }
+  root.setAttribute('data-theme', theme);
+  root.setAttribute('data-rail', collapsed ? 'collapsed' : 'expanded');
 })();
 `;
 
@@ -70,7 +86,7 @@ export default function RootLayout({ children }) {
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
+        <script dangerouslySetInnerHTML={{ __html: BOOTSTRAP }} />
       </head>
       <body>{children}</body>
     </html>

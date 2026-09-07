@@ -126,7 +126,7 @@ export default function ChatWindow() {
   const [activeChatId, setActiveChatId] = useState(null);
   const [input, setInput] = useState("");
   const [loadingChats, setLoadingChats] = useState(new Set());
-  const [railCollapsed, setRailCollapsed] = useState(false);
+  const [railCollapsed, setRailCollapsed] = useState(null);
   // Seeded from the attribute the bootstrap script in layout.js set before
   // first paint. Deriving it here rather than in an effect matters: an effect
   // would land a second render that the theme effect below cannot tell apart
@@ -158,7 +158,12 @@ export default function ChatWindow() {
     // Browser storage is external state; initialize it after hydration.
     setChats([fresh, ...restored]);
     setActiveChatId(fresh.id);
-    setRailCollapsed(readStored(RAIL_KEY, "true") !== "true");
+    // Adopt what the bootstrap resolved before paint, then take the attribute
+    // away: from here the shell's own class is the single source of truth, and
+    // leaving both in play would let them drift apart.
+    const root = document.documentElement;
+    setRailCollapsed(root.getAttribute("data-rail") === "collapsed");
+    root.removeAttribute("data-rail");
   }, []);
 
   useEffect(() => {
@@ -207,7 +212,16 @@ export default function ChatWindow() {
     syncBrowserChrome(theme);
   }, [theme]);
 
+  // Only a deliberate toggle is written down. The adoption pass above is not a
+  // choice, and persisting it is what taught the old build to record whatever
+  // the default happened to be as though the reader had asked for it.
+  const railSettled = useRef(false);
   useEffect(() => {
+    if (railCollapsed === null) return;
+    if (!railSettled.current) {
+      railSettled.current = true;
+      return;
+    }
     try {
       localStorage.setItem(RAIL_KEY, String(!railCollapsed));
     } catch {
@@ -268,7 +282,7 @@ export default function ChatWindow() {
   // changes which conversation you are looking at has to get out of the way —
   // otherwise you pick a chat and keep staring at the list that covers it.
   function dismissDrawer() {
-    if (typeof window !== "undefined" && window.matchMedia("(max-width: 60rem)").matches) {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 46.4375rem)").matches) {
       setRailCollapsed(true);
     }
   }
@@ -468,22 +482,22 @@ export default function ChatWindow() {
       <div className="fade-top" aria-hidden="true" />
       <div className="fade-bottom" aria-hidden="true" />
 
-      <div className={`shell${railCollapsed ? " rail-collapsed" : ""}`}>
+      <div className={`shell${railCollapsed === true ? " rail-collapsed" : ""}${railCollapsed === false ? " rail-expanded" : ""}`}>
         {/* Always mounted, faded by class — mounting it only while open meant
             the dimming blinked in and out around a drawer that was sliding. */}
         <button
           type="button"
-          className={`rail-scrim${railCollapsed ? "" : " open"}`}
+          className={`rail-scrim${railCollapsed === false ? " open" : ""}`}
           aria-label="Collapse sidebar"
-          tabIndex={railCollapsed ? -1 : 0}
-          aria-hidden={railCollapsed}
+          tabIndex={railCollapsed === false ? 0 : -1}
+          aria-hidden={railCollapsed !== false}
           onClick={() => setRailCollapsed(true)}
         />
 
         <Sidebar
           chats={chats}
           activeChatId={activeChat?.id}
-          collapsed={railCollapsed}
+          collapsed={railCollapsed !== false}
           onToggleCollapse={() => setRailCollapsed((collapsed) => !collapsed)}
           onSelectChat={(chatId) => { setActiveChatId(chatId); setInput(""); dismissDrawer(); }}
           onNewChat={startNewChat}

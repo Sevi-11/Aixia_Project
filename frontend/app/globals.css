@@ -116,14 +116,24 @@ html {
   font-size: 90%;
   scroll-behavior: smooth;
   color-scheme: light dark;
+  /* The app is a fixed-height shell with its own inner scrollers, so the
+     document must never scroll. On iOS this is not optional: `min-height:
+     100vh` used to size the body to the LARGE viewport (the height the page
+     gets once Safari hides its toolbars), which is taller than what is
+     actually on screen, so the document had scrollable overflow and a swipe
+     could push the header up under the status bar. */
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
   background: var(--surface-0);
   color: var(--text-primary);
   font-family: var(--utility);
-  min-height: 100vh;
+  height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
   margin: 0;
   transition: background var(--medium), color var(--medium);
 }
@@ -348,6 +358,7 @@ button, textarea, input { font: inherit; color: inherit; }
      reads as "more below" — the same cue the chat thread uses. */
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5rem), transparent 100%);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5rem), transparent 100%);
+  overscroll-behavior: contain;
 }
 
 /* The mockup's history row is a single element. Rename/delete are real
@@ -562,6 +573,7 @@ button, textarea, input { font: inherit; color: inherit; }
      hard-clipped by the scroll viewport. */
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 4.5rem, #000 calc(100% - 8rem), transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0, #000 4.5rem, #000 calc(100% - 8rem), transparent 100%);
+  overscroll-behavior: contain;
 }
 .chat-thread {
   max-width: 46rem; margin: 0 auto;
@@ -963,7 +975,12 @@ button, textarea, input { font: inherit; color: inherit; }
   flex: none;
 }
 .sources-head h3 { margin: 0; font: 400 1.3rem/1 var(--display); }
-.sources-body { padding: 1.1rem 1.2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.9rem; }
+.sources-body {
+  padding: 1.1rem 1.2rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 0.9rem;
+}
 .source-card {
   padding: 0.9rem 1rem;
   border-radius: var(--radius-md);
@@ -1117,7 +1134,15 @@ button, textarea, input { font: inherit; color: inherit; }
   .status-pill .status-label { display: none; }
 
   .composer-dock { padding: 0.85rem; }
-  .chat-scroll { padding: 1.25rem 0 8.5rem; }
+  /* A 4.5rem top fade is most of a phone-sized gap between the header and the
+     first message, so the newest turn read as greyed out. Shorter fade, and
+     more clearance under the header so the thread starts below it rather than
+     dissolving into it. */
+  .chat-scroll {
+    padding: 1.75rem 0 8.5rem;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 2rem, #000 calc(100% - 5.5rem), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 2rem, #000 calc(100% - 5.5rem), transparent 100%);
+  }
   .scroll-fab { right: 1rem; bottom: 6.5rem; }
   .empty-hero { padding: 1.75rem 0.25rem 1rem; }
 

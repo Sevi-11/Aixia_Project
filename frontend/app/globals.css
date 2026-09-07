@@ -239,7 +239,6 @@ button, textarea, input { font: inherit; color: inherit; }
      grid-template-columns interpolates as long as the track count matches. */
   transition: grid-template-columns var(--medium);
 }
-.shell.rail-collapsed { grid-template-columns: 4.5rem 1fr; }
 
 /* Ambient background grid + glow — gives the flat canvas depth before any
    floating element even appears */
@@ -286,7 +285,8 @@ button, textarea, input { font: inherit; color: inherit; }
 .hide-on-collapse {
   transition: opacity var(--fast) 140ms, visibility 0s;
 }
-.rail-collapsed .hide-on-collapse {
+.rail-collapsed .hide-on-collapse,
+html[data-rail="collapsed"] .hide-on-collapse {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -296,7 +296,8 @@ button, textarea, input { font: inherit; color: inherit; }
 .sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 /* Nudges the 2.1rem brand mark to the centre of the 2.5rem rail channel. A
    transitioned padding does this fluidly; `justify-content` could not. */
-.rail-collapsed .brand { padding-left: 0.2rem; }
+.rail-collapsed .brand,
+html[data-rail="collapsed"] .brand { padding-left: 0.2rem; }
 
 .brand {
   display: flex; align-items: center; gap: 0.65rem;
@@ -342,7 +343,8 @@ button, textarea, input { font: inherit; color: inherit; }
 .new-chat-btn > svg { flex: none; }
 /* Padding rather than justify-content: it interpolates, so the + glides to the
    centre of the rail instead of jumping there. 0.73rem centres a 15px icon. */
-.rail-collapsed .new-chat-btn { padding: 0.75rem 0.73rem; }
+.rail-collapsed .new-chat-btn,
+html[data-rail="collapsed"] .new-chat-btn { padding: 0.75rem 0.73rem; }
 
 /* Takes the slack between the New-conversation button and the footer, so on a
    short viewport history uses the room it has instead of clipping early and
@@ -443,23 +445,25 @@ button, textarea, input { font: inherit; color: inherit; }
 }
 /* Width and margin fold to nothing as the rail closes, so the head does not
    hold a 2.1rem hole where the chevron used to be. */
-.rail-collapsed .rail-toggle {
+.rail-collapsed .rail-toggle,
+html[data-rail="collapsed"] .rail-toggle {
   width: 0; margin-left: -0.5rem; border-width: 0;
   transition: width var(--medium), margin var(--medium), border-color var(--medium),
               opacity 150ms var(--ease), visibility 0s linear 150ms;
 }
 .rail-toggle:hover { color: var(--text-primary); }
 .rail-toggle svg { transition: transform var(--medium); }
-.rail-collapsed .rail-toggle svg { transform: rotate(180deg); }
+.rail-collapsed .rail-toggle svg,
+html[data-rail="collapsed"] .rail-toggle svg { transform: rotate(180deg); }
 
 /* ---------- Main column ---------- */
 /* Plain, transparent — the conversation area itself carries no panel
    background, so the ambient canvas stays visible behind the thread. Only the
    header, messages and composer float individually. */
 .main {
-  /* Pinned to the second column explicitly. Below 60rem an expanded sidebar
-     leaves the flow (it floats over the thread as a drawer), and without this
-     the conversation would slide into the 4.5rem rail column and collapse to a
+  /* Pinned to the second column explicitly. Below 46.5rem the sidebar leaves
+     the flow (it floats over the thread as a drawer), and without this the
+     conversation would slide into the rail column and collapse to a
      word-per-line sliver. */
   grid-column: 2;
   position: relative; z-index: 1;
@@ -496,8 +500,8 @@ button, textarea, input { font: inherit; color: inherit; }
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-float);
 }
-/* The rail is gone below 47.5rem, so its logo moves here and becomes the
-   drawer's only trigger. Hidden at every width that still has a rail. */
+/* The rail is gone below 46.5rem (iPad mini portrait), so its logo moves here
+   and becomes the drawer's only trigger. Hidden wherever a rail still exists. */
 .header-menu {
   display: none;
   align-items: center;
@@ -1064,37 +1068,21 @@ button, textarea, input { font: inherit; color: inherit; }
 
 /* ---------- Responsive ---------- */
 
-/* Tablet: the rail stays, pinned closed, and widens into a drawer over the
-   thread. `.main` keeps its explicit grid-column so the conversation stays
-   full width behind it. */
-@media (max-width: 60rem) and (min-width: 47.5625rem) {
-  .shell { grid-template-columns: 4.5rem 1fr; }
-  /* Fixed in BOTH states. `position` cannot tween, so switching relative ->
-     fixed on toggle teleported the whole panel; pinning it here means opening
-     the drawer animates a width and nothing else. The 4.5rem grid track stays
-     behind it to reserve the rail's footprint. */
-  .sidebar {
-    position: fixed; top: 1rem; bottom: 1rem; left: 1rem;
-    width: 4.5rem; z-index: 45;
-  }
-  .shell:not(.rail-collapsed) .sidebar { width: min(17rem, calc(100vw - 4rem)); }
-}
-@media (min-width: 60.0625rem) {
+/* iPad mini portrait (744px = 46.5rem) is the dividing line.
+   At or above it the sidebar has room to sit in the grid alongside the thread,
+   so it starts open and collapses to a 4.5rem rail on request. Below it there
+   is no width to spare, so the sidebar leaves the layout entirely and becomes
+   an overlay drawer that starts closed. */
+
+@media (min-width: 46.5rem) {
+  .shell.rail-collapsed,
+  html[data-rail="collapsed"] .shell { grid-template-columns: 4.5rem 1fr; }
+  /* Nothing to dim: the sidebar is part of the layout at this width. */
   .rail-scrim { display: none; }
 }
 
-/* Phone and small tablet.
-
-   No rail at all here. On a 393px screen a 4.5rem rail spends a sixth of the
-   width on two icons the header can carry instead, so the shell drops to a
-   single column, the sidebar becomes a drawer that slides fully off-screen,
-   and the logo that opens it moves into the header. */
-@media (max-width: 47.5rem) {
-  /* `.shell.rail-collapsed` in the base carries specificity (0,2,0) and a
-     media query adds none, so a bare `.shell` here loses to it and the rail
-     track survives. Both states have to be named. */
-  .shell,
-  .shell.rail-collapsed {
+@media (max-width: 46.4375rem) {
+  .shell {
     grid-template-columns: 1fr;
     gap: 0.6rem;
     /* env() is 0 unless the viewport is served with viewport-fit=cover, so
@@ -1108,19 +1096,23 @@ button, textarea, input { font: inherit; color: inherit; }
 
   /* Width no longer encodes open/closed -- the drawer is always full width and
      translates in and out, so there is no narrow rail state to see. */
-  .sidebar,
-  .shell:not(.rail-collapsed) .sidebar {
+  .sidebar {
     position: fixed;
     top: calc(0.6rem + env(safe-area-inset-top, 0px));
     bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px));
     left: calc(0.6rem + env(safe-area-inset-left, 0px));
     width: min(17rem, calc(100vw - 3.2rem));
     z-index: 45;
+    transform: translateX(calc(-100% - 1.2rem));
   }
-  .sidebar { transform: translateX(calc(-100% - 1.2rem)); }
-  .shell:not(.rail-collapsed) .sidebar { transform: none; }
+  /* Opened only by an explicit expanded state. `:not(.rail-collapsed)` would
+     also match the pre-hydration frame, where the shell carries no class at
+     all -- which is exactly when the drawer must stay shut. */
+  .shell.rail-expanded .sidebar,
+  html[data-rail="expanded"] .sidebar { transform: none; }
 
-  /* The drawer trigger lives in the header at this width. */
+  /* The rail is gone, so its logo moves into the header and becomes the
+     drawer's only trigger. */
   .header-menu { display: flex; }
 
   .sources-panel { top: 0.6rem; right: 0.6rem; bottom: 0.6rem; width: calc(100vw - 1.2rem); }

@@ -53,6 +53,15 @@ ANSWER_TEMPERATURE = float(os.getenv("GROQ_TEMPERATURE", "0.2"))
 # there is nothing for a higher temperature to drift away from.
 EXTRAS_TEMPERATURE = float(os.getenv("GROQ_EXTRAS_TEMPERATURE", "0.7"))
 
+# How many chunks a question retrieves. 3 was thin once the corpus held several
+# multi-page documents: near-identical chunks -- two copies of a CV, or a CV and
+# a resume saying the same thing -- crowd the slots, and a fact that appears in
+# only one chunk falls off the list. Measured on a corpus with a duplicated CV,
+# k=3 spent two of three slots on the same page of both copies, which is enough
+# to lose an entire employer. The model then answers correctly from what it was
+# given and never learns the rest exists.
+RETRIEVAL_K = int(os.getenv("RETRIEVAL_K", "5"))
+
 
 def get_llm(max_tokens: int = None, temperature: float = None):
     kwargs = {}
@@ -88,13 +97,13 @@ def format_history(messages):
     return '\n'.join(lines) + '\n'
 
 def _retrieve_and_build_chain_input(vectorstore, question: str, history: list, k: int):
-    retrieved_docs = vectorstore.similarity_search(question, k=k)
+    retrieved_docs = vectorstore.similarity_search(question, k=k or RETRIEVAL_K)
     context = format_docs(retrieved_docs)
     history_text = format_history(history or [])
     chain_input = {"context": context, "question": question, "history": history_text}
     return retrieved_docs, chain_input
 
-def answer_question(vectorstore, question: str, history:list, k:int = 3):
+def answer_question(vectorstore, question: str, history:list, k:int = None):
     llm = get_llm()
     retrieved_docs, chain_input = _retrieve_and_build_chain_input(vectorstore, question, history, k)
     if logger.isEnabledFor(logging.DEBUG):
@@ -111,7 +120,7 @@ def answer_question(vectorstore, question: str, history:list, k:int = 3):
 
     return answer, retrieved_docs
 
-def answer_question_stream(vectorstore, question: str, history: list, k: int = 3, llm=None):
+def answer_question_stream(vectorstore, question: str, history: list, k: int = None, llm=None):
     """Like answer_question, but returns retrieved docs immediately and a
     lazy generator of visible answer text (thinking tags stripped) instead
     of waiting for the full generation to complete.

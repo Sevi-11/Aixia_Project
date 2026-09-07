@@ -475,6 +475,7 @@ export default function ChatWindow() {
             status={status}
             theme={theme}
             onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+            onOpenSidebar={() => setRailCollapsed(false)}
           />
 
           <div className="chat-scroll" ref={scrollRef} onScroll={handleScroll}>

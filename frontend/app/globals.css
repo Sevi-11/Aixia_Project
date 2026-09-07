@@ -1034,7 +1034,9 @@ html[data-rail="collapsed"] .rail-toggle svg { transform: rotate(180deg); }
 .scroll-fab.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 
 /* ---------- Empty hero ---------- */
-.empty-hero { text-align: center; padding: 3rem 1rem 1rem; animation: fade-up var(--medium) backwards; }
+/* Holds the starter grid only; the greeting bubble above it now carries the
+   introduction that used to be an h1 here. */
+.empty-hero { text-align: center; padding: 0.5rem 1rem 1rem; animation: fade-up var(--medium) backwards; }
 .empty-hero h1 {
   font: 400 clamp(1.8rem, 3vw, 2.6rem)/1.05 var(--display);
   margin: 0 0 0.6rem;

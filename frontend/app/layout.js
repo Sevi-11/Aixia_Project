@@ -1,5 +1,6 @@
 import { Abril_Fatface, Comfortaa, IBM_Plex_Mono, Inter } from "next/font/google";
 import "./globals.css";
+import { THEME_TINT } from "../components/themeTint";
 
 const abrilFatface = Abril_Fatface({
   variable: "--font-abril-fatface",
@@ -39,7 +40,7 @@ export const viewport = {
   // choice made in the header, not one the OS makes, so media-scoped values
   // would tint the chrome against the actual page half the time. ChatWindow
   // rewrites this whenever the theme is toggled.
-  themeColor: "#F4F1EA",
+  themeColor: THEME_TINT.light,
   // The composer is pinned to the bottom of a 100dvh shell. The default
   // ("resizes-visual") leaves the layout viewport at full height when the
   // keyboard opens, so the composer stays underneath it; this shrinks the
@@ -74,6 +75,9 @@ const BOOTSTRAP = `
   }
   root.setAttribute('data-theme', theme);
   root.setAttribute('data-rail', collapsed ? 'collapsed' : 'expanded');
+  var tint = ${JSON.stringify(THEME_TINT)};
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', tint[theme]);
 })();
 `;
 

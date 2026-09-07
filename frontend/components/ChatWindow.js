@@ -8,6 +8,7 @@ import Sidebar from "./Sidebar";
 import SourcesPanel from "./SourcesPanel";
 import { ArrowDownIcon } from "./icons";
 import { createTypingPacer } from "./typingPacer";
+import { THEME_TINT } from "./themeTint";
 
 const HISTORY_KEY = "aixia-chat-history";
 const RAIL_KEY = "aixia-sidebar-open";
@@ -101,13 +102,10 @@ function readStored(key, fallback) {
   }
 }
 
-// Safari tints its status-bar strip and toolbars with <meta name="theme-color">.
-// It is emitted as a static light value (see layout.js), so toggling the theme
-// has to rewrite it or the chrome ends up fighting the page.
-const CHROME_TINT = { light: "#F4F1EA", dark: "#0A1128" };
-
+// The bootstrap in layout.js sets this correctly before first paint; this
+// keeps it right when the theme is toggled afterwards.
 function syncBrowserChrome(theme) {
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", CHROME_TINT[theme] || CHROME_TINT.light);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_TINT[theme] || THEME_TINT.light);
 }
 
 function dayLabel(timestamp) {
@@ -509,7 +507,6 @@ export default function ChatWindow() {
           <AppHeader
             title={activeChat?.title || "New conversation"}
             status={status}
-            theme={theme}
             onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
             onOpenSidebar={() => setRailCollapsed(false)}
           />

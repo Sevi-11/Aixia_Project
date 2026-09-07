@@ -1,6 +1,6 @@
 "use client";
 
-import { IconSwap, MoonIcon, SunIcon } from "./icons";
+import { MoonIcon, SunIcon } from "./icons";
 
 const STATUS_LABEL = {
   connecting: "Connecting to AIxia",
@@ -8,7 +8,13 @@ const STATUS_LABEL = {
   offline: "AIxia is unreachable",
 };
 
-export default function AppHeader({ title, status, theme, onToggleTheme, onOpenSidebar }) {
+// Deliberately takes no `theme`. The active palette is only known on the
+// client — the bootstrap in layout.js resolves it from storage before paint —
+// so rendering anything from it here makes the server's HTML and the client's
+// first render disagree, and React declines to patch attribute mismatches.
+// The icon is driven from html[data-theme] in CSS instead, and the label is
+// worded so it reads correctly in either state.
+export default function AppHeader({ title, status, onToggleTheme, onOpenSidebar }) {
   return (
     <header className="app-header glass">
       <div className="header-left">
@@ -30,13 +36,13 @@ export default function AppHeader({ title, status, theme, onToggleTheme, onOpenS
           type="button"
           className="icon-btn"
           onClick={onToggleTheme}
-          title={theme === "dark" ? "Switch to light" : "Switch to dark"}
-          aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+          title="Switch between light and dark"
+          aria-label="Switch between light and dark theme"
         >
-          <IconSwap alt={theme === "dark"}>
+          <span className="icon-swap theme-icon" aria-hidden="true">
             <MoonIcon />
             <SunIcon />
-          </IconSwap>
+          </span>
         </button>
       </div>
     </header>

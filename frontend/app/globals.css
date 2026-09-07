@@ -72,6 +72,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --surface-0: #0A1128;
     --surface-1: #101A3D;
     --surface-2: #182552;
@@ -88,6 +89,7 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --surface-0: #0A1128;
   --surface-1: #101A3D;
   --surface-2: #182552;
@@ -115,7 +117,13 @@
 html {
   font-size: 90%;
   scroll-behavior: smooth;
-  color-scheme: light dark;
+  /* Follows the app's own theme, not the OS. `light dark` hands the decision
+     to the system, which is wrong for a palette the reader picks in the
+     header: it drove native surfaces -- form controls, scrollbars, and the
+     colour behind an overscroll -- to the opposite scheme from the page. The
+     bootstrap stamps data-theme before first paint, so this resolves on the
+     first frame. */
+  color-scheme: light;
   /* The app is a fixed-height shell with its own inner scrollers, so the
      document must never scroll. On iOS this is not optional: `min-height:
      100vh` used to size the body to the LARGE viewport (the height the page
@@ -212,6 +220,13 @@ button, textarea, input { font: inherit; color: inherit; }
 .icon-swap > :last-child { opacity: 0; transform: rotate(-90deg) scale(0.5); }
 .icon-swap.is-alt > :first-child { opacity: 0; transform: rotate(90deg) scale(0.5); }
 .icon-swap.is-alt > :last-child { opacity: 1; transform: none; }
+
+/* The theme button's icon follows the palette attribute rather than a React
+   prop. Only the client knows the active theme, so deriving the class in JSX
+   made the server's HTML disagree with the client's first render — and React
+   does not patch attribute mismatches, leaving a moon icon on a dark page. */
+:root[data-theme="dark"] .theme-icon > :first-child { opacity: 0; transform: rotate(90deg) scale(0.5); }
+:root[data-theme="dark"] .theme-icon > :last-child { opacity: 1; transform: none; }
 
 /* Same idea for text that replaces text. */
 .label-swap { display: grid; }

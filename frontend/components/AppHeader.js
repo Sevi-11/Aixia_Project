@@ -1,6 +1,6 @@
 "use client";
 
-import { MoonIcon, SunIcon } from "./icons";
+import { LotusIcon, LotusIconDark, MoonIcon, SunIcon } from "./icons";
 
 const STATUS_LABEL = {
   connecting: "Connecting to AIxia",
@@ -22,7 +22,12 @@ export default function AppHeader({ title, status, onToggleTheme, onOpenSidebar 
             and is the only way to reach conversation history. CSS hides it at
             wider sizes, where the rail owns that job. */}
         <button type="button" className="header-menu" onClick={onOpenSidebar} aria-label="Open sidebar" title="Open sidebar">
-          <span className="brand-mark" aria-hidden="true">Æ</span>
+          <span className="brand-mark" aria-hidden="true">
+            <span className="icon-swap theme-icon">
+              <LotusIcon />
+              <LotusIconDark />
+            </span>
+          </span>
         </button>
         <div className="header-title">{title}</div>
       </div>

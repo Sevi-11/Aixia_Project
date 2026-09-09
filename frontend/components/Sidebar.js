@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeftIcon, PencilIcon, PlusIcon, TrashIcon } from "./icons";
+import { ChevronLeftIcon, LotusIcon, LotusIconDark, PencilIcon, PlusIcon, TrashIcon } from "./icons";
 
 export default function Sidebar({
   chats,
@@ -50,7 +50,12 @@ export default function Sidebar({
           aria-label="Expand sidebar"
           title={collapsed ? "Expand sidebar" : undefined}
         >
-          <span className="brand-mark" aria-hidden="true">Æ</span>
+          <span className="brand-mark" aria-hidden="true">
+            <span className="icon-swap theme-icon">
+              <LotusIcon />
+              <LotusIconDark />
+            </span>
+          </span>
           <span className="brand-word hide-on-collapse">AIxia</span>
         </button>
         <button

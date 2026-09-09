@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import ThinkingBubble from "./ThinkingBubble";
 import Markdown from "./Markdown";
 import { sourceLabel } from "./sourceLabel";
-import { CheckIcon, CopyIcon, IconSwap, RegenerateIcon, ThumbDownIcon, ThumbUpIcon } from "./icons";
+import { CheckIcon, CopyIcon, IconSwap, LotusIcon, LotusIconDark, RegenerateIcon, ThumbDownIcon, ThumbUpIcon } from "./icons";
 
 
 export default function MessageRow({
@@ -65,7 +65,14 @@ export default function MessageRow({
 
   return (
     <div ref={rowRef} className={`msg-row ${isUser ? "user" : "ai"} reveal${visible ? " is-visible" : ""}`}>
-      {!isUser && <div className="msg-avatar" aria-hidden="true">Æ</div>}
+      {!isUser && (
+        <div className="msg-avatar" aria-hidden="true">
+          <span className="icon-swap theme-icon">
+            <LotusIcon />
+            <LotusIconDark />
+          </span>
+        </div>
+      )}
       <div className="bubble-stack">
         {showThinking ? (
           <ThinkingBubble />

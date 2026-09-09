@@ -618,10 +618,11 @@ html[data-rail="collapsed"] .rail-toggle svg { transform: rotate(180deg); }
 .msg-avatar {
   width: 2rem; height: 2rem; border-radius: var(--radius-full);
   flex: none; display: flex; align-items: center; justify-content: center;
-  font-family: var(--display); font-size: 0.9rem; color: var(--paper);
-  background: linear-gradient(135deg, var(--accent), var(--navy) 140%);
   margin-top: 0.2rem;
 }
+/* Full-color artwork (see icons.js), not text on a background chip. */
+.msg-avatar .icon-swap { width: 100%; height: 100%; }
+.msg-avatar .icon-swap > * { width: 100%; height: 100%; }
 
 .bubble-stack { display: flex; flex-direction: column; gap: 0.55rem; max-width: 32rem; min-width: 0; }
 .msg-row.user .bubble-stack { align-items: flex-end; }

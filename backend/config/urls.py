@@ -33,6 +33,16 @@ def healthz(_request):
 
 urlpatterns = [
     path('healthz/', healthz, name='healthz'),
+    # The same probe inside the API tree. The frontend reaches the backend only
+    # through /api/, so a health check living outside it needs a special-case
+    # proxy rule on every host that fronts this service. Serving it at both
+    # paths costs one line and removes that special case: the platform's own
+    # check keeps using /healthz/, the app uses /api/healthz/.
+    path('api/healthz/', healthz, name='api-healthz'),
+    # The slashless spelling too, because the frontend polls this on a timer
+    # from every open tab. APPEND_SLASH would answer each poll with a 301 and
+    # make the client pay two round trips forever to reach the same view.
+    path('api/healthz', healthz, name='api-healthz-noslash'),
     path('admin/', admin.site.urls),
     path('api/documents/', include('documents.d_urls')),
     path('api/chat/', include('chat.c_urls'))

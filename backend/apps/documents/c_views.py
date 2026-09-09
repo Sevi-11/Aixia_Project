@@ -10,7 +10,12 @@ from .a_serializers import DocumentSerializer
 from .b_services import ingest_document
 
 ALLOWED_EXTENSIONS = {'.pdf'}
-MAX_UPLOAD_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
+# Serverless hosts cap the request body well below what a Django process on a
+# VM would accept -- Vercel's limit is 4.5 MB -- and a request over that limit
+# is rejected by the platform before Django sees it, producing an opaque error
+# instead of this view's clear one. Staying under the platform ceiling means
+# the app owns the rejection and can explain it.
+MAX_UPLOAD_SIZE_BYTES = 4 * 1024 * 1024  # 4 MB
 
 class DocumentUploadView(APIView):
     parser_classes = [MultiPartParser]
@@ -26,7 +31,7 @@ class DocumentUploadView(APIView):
             return Response({'error': 'Only PDF files are supported'}, status=status.HTTP_400_BAD_REQUEST)
 
         if uploaded_file.size > MAX_UPLOAD_SIZE_BYTES:
-            return Response({'error': 'File exceeds the 20MB upload limit'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'File exceeds the 4MB upload limit'}, status=status.HTTP_400_BAD_REQUEST)
 
         document = Document.objects.create(
             file = uploaded_file,

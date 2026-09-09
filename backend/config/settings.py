@@ -86,14 +86,30 @@ if not SECRET_KEY:
 _LAN_IP = get_lan_ip() if DEBUG else None
 _extra_hosts = [f'{_LAN_IP}', f'{_LAN_IP}:3000'] if _LAN_IP else []
 
-# Render injects the service's public hostname into every container. Reading it
-# here breaks the chicken-and-egg of the first deploy -- you cannot put the URL
-# in ALLOWED_HOSTS before the service exists to have one.
-RENDER_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME')
+# Hostnames the hosting platform assigns at deploy time. None can be written
+# down in advance: the first deploy has no URL yet, and a preview deployment
+# gets a fresh one on every push. Reading them from the environment is what
+# lets the same settings serve production and every preview.
+#
+# Django answers an unrecognised Host with a bare 400 and no explanation, so a
+# hostname missing from this list is both the most likely deployment failure
+# and the least legible one.
+PLATFORM_HOSTNAMES = [
+    hostname
+    for hostname in (
+        # Render
+        os.getenv('RENDER_EXTERNAL_HOSTNAME'),
+        # Vercel: the stable production domain, the per-branch alias, and the
+        # immutable per-deployment URL. All three can serve the same code.
+        os.getenv('VERCEL_PROJECT_PRODUCTION_URL'),
+        os.getenv('VERCEL_BRANCH_URL'),
+        os.getenv('VERCEL_URL'),
+    )
+    if hostname
+]
 
 ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1,aixia') + _extra_hosts
-if RENDER_HOSTNAME:
-    ALLOWED_HOSTS.append(RENDER_HOSTNAME)
+ALLOWED_HOSTS += PLATFORM_HOSTNAMES
 
 
 # Application definition
@@ -139,8 +155,7 @@ if _LAN_IP:
 # admin login and every session-authenticated POST fail CSRF verification --
 # the single most common "it worked locally" deployment failure for Django.
 CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS')
-if RENDER_HOSTNAME:
-    CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_HOSTNAME}')
+CSRF_TRUSTED_ORIGINS += [f'https://{hostname}' for hostname in PLATFORM_HOSTNAMES]
 
 # Render terminates TLS at its edge and forwards plain HTTP inside the network,
 # so this header is the only way Django can tell the original request was
@@ -165,7 +180,7 @@ if not DEBUG:
     # Render's own health check reaches the container over plain HTTP on the
     # internal port. Without this exemption the redirect above answers it with
     # a 301, Render reads that as unhealthy, and it kills a working deploy.
-    SECURE_REDIRECT_EXEMPT = [r'^healthz/$']
+    SECURE_REDIRECT_EXEMPT = [r'^healthz/$', r'^api/healthz/$']
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))

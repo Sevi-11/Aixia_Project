@@ -68,7 +68,7 @@ def get_llm(max_tokens: int = None, temperature: float = None):
     if REASONING_EFFORT:
         kwargs["reasoning_effort"] = REASONING_EFFORT
     return ChatGroq(
-        model=os.getenv("GROQ_MODEL", "qwen/qwen3.6-27b"),
+        model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
         groq_api_key=os.getenv("GROQ_API_KEY"),
         # `is None`, not `or`: an explicit 0 is a legitimate request for full
         # determinism and must not be quietly replaced by the default.

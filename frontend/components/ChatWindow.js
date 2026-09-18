@@ -6,6 +6,7 @@ import Composer from "./Composer";
 import MessageRow from "./MessageRow";
 import Sidebar from "./Sidebar";
 import SourcesPanel from "./SourcesPanel";
+import VoiceScreen from "./VoiceScreen";
 import { ArrowDownIcon } from "./icons";
 import { useXiaState } from "./xia/useXiaState";
 import { streamChat } from "./xia/chatStream";
@@ -155,6 +156,11 @@ export default function ChatWindow() {
   const [voiceOn, setVoiceOn] = useState(() => (
     typeof document !== "undefined" && document.documentElement.getAttribute("data-voice") === "on"
   ));
+  // A presentation mode, not a per-conversation setting -- it stays put across
+  // chat switches, and always starts on "chat" (never persisted): a call
+  // screen greeting the reader on arrival is exactly the surprise the sidebar
+  // rail avoided by the same rule.
+  const [interactionMode, setInteractionMode] = useState("chat");
   const [listening, setListening] = useState(false);
   const [micError, setMicError] = useState(null);
   const [status, setStatus] = useState("connecting");
@@ -176,6 +182,9 @@ export default function ChatWindow() {
   // Read inside a running stream, so flipping the toggle mid-answer takes
   // effect on that answer rather than the next one.
   const voiceOnRef = useRef(voiceOn);
+  // Same reason: the streaming callbacks below close over render-time values,
+  // and a call in progress has to see a mode switch that happens mid-answer.
+  const interactionModeRef = useRef(interactionMode);
 
   // Built on first use, not at module scope: `window.speechSynthesis` does not
   // exist while this renders on the server.
@@ -325,6 +334,22 @@ export default function ChatWindow() {
     listener.start();
   }
 
+  useEffect(() => {
+    interactionModeRef.current = interactionMode;
+    if (interactionMode === "voice") {
+      // A call nobody can hear is not a call. This is the one direction that
+      // auto-adjusts the speaker -- leaving Voice never turns it back off,
+      // since a reader who wanted answers read aloud in Chat too should not
+      // have that taken away by a mode switch they made for other reasons.
+      setVoiceOn(true);
+    } else {
+      // Leaving the call ends it, rather than leaving the mic running
+      // somewhere the reader can no longer see or stop it from.
+      listenerRef.current?.stop();
+      speakerRef.current?.cancel();
+    }
+  }, [interactionMode]);
+
   // Release the microphone if the component goes away mid-dictation.
   useEffect(() => () => {
     listenerRef.current?.abort();
@@ -462,6 +487,18 @@ export default function ChatWindow() {
       return true;
     };
 
+    // Keeps a voice call going: once she has finished the reply, listen for
+    // the next turn without being asked again. Only after a clean answer --
+    // not after an error, where retrying blind into whatever just failed is
+    // the wrong default, and the reader can always tap the mic themselves.
+    const resumeListeningIfOnCall = () => {
+      if (interactionModeRef.current !== "voice") return;
+      if (chatId !== activeChatIdRef.current) return;
+      if (document.documentElement.getAttribute("data-stt") === "no") return;
+      const listener = getListener();
+      if (!listener.listening) listener.start();
+    };
+
     try {
       await streamChat(requestBody, {
         onStatus: setStatus,
@@ -494,6 +531,7 @@ export default function ChatWindow() {
           // Synthesis mid-stream would queue an utterance per token burst and
           // read the answer back in overlapping fragments.
           if (!(await speakIfEnabled(fullText))) forXia("settle");
+          resumeListeningIfOnCall();
         },
 
         onError: async ({ text, revealed, friendly, midStream }) => {
@@ -667,74 +705,89 @@ export default function ChatWindow() {
             xiaState={xiaState}
             mode={mode}
             onSetMode={(next) => activeChat && updateChat(activeChat.id, { mode: next })}
+            interactionMode={interactionMode}
+            onSetInteractionMode={setInteractionMode}
             onToggleVoice={() => setVoiceOn((on) => !on)}
             onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
             onOpenSidebar={() => setRailCollapsed(false)}
           />
 
-          <div className="chat-scroll" ref={scrollRef} onScroll={handleScroll}>
-            <div className="chat-thread">
-              {messages.length === 0 ? (
-                <div className="empty-hero">
-                  {mode === "general" ? (
-                    <>
-                      <h1>Ask me <em>anything</em></h1>
-                      <p>General questions, explanations, drafting, code. This mode isn&apos;t grounded in any documents, so there are no sources to check — for anything about Vince, switch to <strong>About Vince</strong>.</p>
-                    </>
+          {interactionMode === "voice" ? (
+            <VoiceScreen
+              xiaState={xiaState}
+              listening={listening}
+              micError={micError}
+              disabled={loading}
+              interimText={input}
+              onToggleListening={toggleListening}
+            />
+          ) : (
+            <>
+              <div className="chat-scroll" ref={scrollRef} onScroll={handleScroll}>
+                <div className="chat-thread">
+                  {messages.length === 0 ? (
+                    <div className="empty-hero">
+                      {mode === "general" ? (
+                        <>
+                          <h1>Ask me <em>anything</em></h1>
+                          <p>General questions, explanations, drafting, code. This mode isn&apos;t grounded in any documents, so there are no sources to check — for anything about Vince, switch to <strong>About Vince</strong>.</p>
+                        </>
+                      ) : (
+                        <>
+                          <h1>Ask me anything about <em>Vince</em></h1>
+                          <p>I answer from his CV, projects and notes — grounded in the documents, with the sources you can check. He&apos;s Sean Vincent Vien V. Viñas on paper, but goes by Vince.</p>
+                        </>
+                      )}
+                      <div className="starter-grid">
+                        {starters.map((starter, index) => (
+                          <button key={starter} type="button" className="starter-card" onClick={() => sendMessage(starter)}>
+                            <span className="starter-index">0{index + 1}</span>
+                            {starter}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ) : (
-                    <>
-                      <h1>Ask me anything about <em>Vince</em></h1>
-                      <p>I answer from his CV, projects and notes — grounded in the documents, with the sources you can check. He&apos;s Sean Vincent Vien V. Viñas on paper, but goes by Vince.</p>
-                    </>
+                    rows.map(({ message, index, divider }) => (
+                      <ThreadRow key={`${message.role}-${index}`} divider={divider}>
+                        <MessageRow
+                          message={message}
+                          isLast={index === messages.length - 1}
+                          onOpenSources={(sourceIndex) => showSources(message.sources || [], sourceIndex)}
+                          onRegenerate={() => regenerateMessage(activeChat.id)}
+                          onFeedback={(value) => setMessageFeedback(activeChat.id, index, value)}
+                          onSuggestionClick={(text) => sendMessage(text)}
+                        />
+                      </ThreadRow>
+                    ))
                   )}
-                  <div className="starter-grid">
-                    {starters.map((starter, index) => (
-                      <button key={starter} type="button" className="starter-card" onClick={() => sendMessage(starter)}>
-                        <span className="starter-index">0{index + 1}</span>
-                        {starter}
-                      </button>
-                    ))}
-                  </div>
+                  <div ref={messagesEndRef} />
                 </div>
-              ) : (
-                rows.map(({ message, index, divider }) => (
-                  <ThreadRow key={`${message.role}-${index}`} divider={divider}>
-                    <MessageRow
-                      message={message}
-                      isLast={index === messages.length - 1}
-                      onOpenSources={(sourceIndex) => showSources(message.sources || [], sourceIndex)}
-                      onRegenerate={() => regenerateMessage(activeChat.id)}
-                      onFeedback={(value) => setMessageFeedback(activeChat.id, index, value)}
-                      onSuggestionClick={(text) => sendMessage(text)}
-                    />
-                  </ThreadRow>
-                ))
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          </div>
+              </div>
 
-          <Composer
-            value={input}
-            onChange={setInput}
-            onSend={sendMessage}
-            onExport={exportConversation}
-            disabled={loading}
-            canExport={messages.length > 0}
-            listening={listening}
-            micError={micError}
-            onToggleListening={toggleListening}
-          />
+              <Composer
+                value={input}
+                onChange={setInput}
+                onSend={sendMessage}
+                onExport={exportConversation}
+                disabled={loading}
+                canExport={messages.length > 0}
+                listening={listening}
+                micError={micError}
+                onToggleListening={toggleListening}
+              />
 
-          <button
-            type="button"
-            className={`scroll-fab${showScrollFab ? " show" : ""}`}
-            onClick={scrollToLatest}
-            aria-label="Scroll to latest"
-            tabIndex={showScrollFab ? 0 : -1}
-          >
-            <ArrowDownIcon />
-          </button>
+              <button
+                type="button"
+                className={`scroll-fab${showScrollFab ? " show" : ""}`}
+                onClick={scrollToLatest}
+                aria-label="Scroll to latest"
+                tabIndex={showScrollFab ? 0 : -1}
+              >
+                <ArrowDownIcon />
+              </button>
+            </>
+          )}
         </div>
       </div>
 

@@ -860,6 +860,59 @@ html[data-rail="collapsed"] .hide-on-collapse {
 .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
 @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.5; } 30% { transform: translateY(-4px); opacity: 1; } }
 
+/* ---------- Voice screen ---------- */
+/* Stands in for .chat-scroll + the composer, not alongside them — Voice mode
+   replaces the thread with a call screen rather than adding a mic to it. */
+.voice-screen {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2.5rem;
+  padding: 2rem;
+}
+
+.voice-stage {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 1.5rem;
+  text-align: center;
+}
+
+.voice-caption {
+  max-width: 26rem;
+  font: 500 0.95rem/1.5 var(--friendly);
+  color: var(--text-muted);
+  min-height: 1.5em;
+}
+.voice-caption.is-error { color: var(--error); }
+
+.voice-mic-btn {
+  width: 4.5rem; height: 4.5rem; border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--fast), color var(--fast), box-shadow var(--fast), transform var(--fast);
+}
+.voice-mic-btn:hover { box-shadow: var(--shadow-float); transform: translateY(-2px); }
+.voice-mic-btn:active { transform: translateY(0); }
+.voice-mic-btn:disabled { opacity: 0.5; cursor: default; transform: none; box-shadow: var(--shadow-sm); }
+/* Same "live" language as the composer's own mic and the status dot — a
+   ring that expands and fades, echoing Xia's own listening ripple. */
+.voice-mic-btn.is-listening {
+  background: var(--accent-soft);
+  color: var(--accent);
+  animation: voice-mic-pulse 1.8s var(--ease) infinite;
+}
+@keyframes voice-mic-pulse {
+  0%, 100% { box-shadow: var(--shadow-sm), 0 0 0 0 var(--accent-soft); }
+  50% { box-shadow: var(--shadow-sm), 0 0 0 0.6rem transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-mic-btn.is-listening { animation: none; }
+}
+
 /* ---------- Floating composer ---------- */
 .composer-dock {
   position: absolute; left: 0; right: 0; bottom: 0;
@@ -1191,6 +1244,10 @@ html[data-rail="collapsed"] .hide-on-collapse {
   display: grid;
   place-items: center;
 }
+/* The voice screen's centrepiece. Every state animation is defined in
+   proportional units (percentages, transform scale), so scaling the figure
+   up is just this — nothing state-specific needed re-tuning. */
+.xia.xia-large { width: 10rem; height: 10rem; }
 
 .xia-figure {
   width: 100%;
@@ -1318,6 +1375,9 @@ html[data-rail="collapsed"] .hide-on-collapse {
    detection happens in the pre-paint bootstrap, for the same reason the theme
    does: React must render what the server rendered. Typing is unaffected. */
 :root[data-stt="no"] .mic-btn { display: none; }
+/* Same reasoning, same signal: a Voice mode with no microphone to drive it is
+   not a mode you could ever use, so it never gets offered. */
+:root[data-stt="no"] .voice-mode-switch { display: none; }
 
 .mic-btn.is-listening {
   color: var(--accent);

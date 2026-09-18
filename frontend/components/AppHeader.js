@@ -15,7 +15,7 @@ const STATUS_LABEL = {
 // first render disagree, and React declines to patch attribute mismatches.
 // The icon is driven from html[data-theme] in CSS instead, and the label is
 // worded so it reads correctly in either state.
-export default function AppHeader({ title, status, xiaState, mode, onSetMode, onToggleVoice, onToggleTheme, onOpenSidebar }) {
+export default function AppHeader({ title, status, xiaState, mode, onSetMode, interactionMode, onSetInteractionMode, onToggleVoice, onToggleTheme, onOpenSidebar }) {
   return (
     <header className="app-header glass">
       <div className="header-left">
@@ -34,6 +34,11 @@ export default function AppHeader({ title, status, xiaState, mode, onSetMode, on
         <div className="header-title">{title}</div>
       </div>
       <div className="header-right">
+        <span className="status-pill" title={STATUS_LABEL[status]}>
+          <span className={`status-dot ${status}`} aria-hidden="true" />
+          <span className="status-label">AIxia</span>
+          <span className="sr-only">{STATUS_LABEL[status]}</span>
+        </span>
         <div className="mode-switch" role="group" aria-label="Answer mode">
           <button
             type="button"
@@ -56,11 +61,29 @@ export default function AppHeader({ title, status, xiaState, mode, onSetMode, on
             <span className="mode-short">Gen</span>
           </button>
         </div>
-        <span className="status-pill" title={STATUS_LABEL[status]}>
-          <span className={`status-dot ${status}`} aria-hidden="true" />
-          <span className="status-label">AIxia</span>
-          <span className="sr-only">{STATUS_LABEL[status]}</span>
-        </span>
+        {/* Hidden alongside the mic (see .mic-btn) wherever there is no speech
+            recogniser to drive it — a voice call nobody can talk into is not a
+            mode, it's a dead end. */}
+        <div className="mode-switch voice-mode-switch" role="group" aria-label="Interaction mode">
+          <button
+            type="button"
+            className={`mode-option${interactionMode === "voice" ? "" : " is-active"}`}
+            aria-pressed={interactionMode !== "voice"}
+            onClick={() => onSetInteractionMode("chat")}
+            title="Type to Aixia, in the conversation thread"
+          >
+            Chat
+          </button>
+          <button
+            type="button"
+            className={`mode-option${interactionMode === "voice" ? " is-active" : ""}`}
+            aria-pressed={interactionMode === "voice"}
+            onClick={() => onSetInteractionMode("voice")}
+            title="Talk to Aixia — a live voice conversation, no typing"
+          >
+            Voice
+          </button>
+        </div>
         <button
           type="button"
           className="icon-btn"

@@ -14,9 +14,9 @@
  * with the server's HTML. Every colour here comes from --accent, which the
  * palettes redefine.
  */
-export default function Xia({ state }) {
+export default function Xia({ state, size }) {
   return (
-    <span className="xia" data-state={state} aria-hidden="true">
+    <span className={`xia${size ? ` xia-${size}` : ""}`} data-state={state} aria-hidden="true">
       <svg className="xia-figure" viewBox="0 0 64 64">
         {/* Only visible while listening: two staggered rings travelling
             outward, the visual shorthand for a live microphone. */}

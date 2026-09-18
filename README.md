@@ -31,27 +31,35 @@ Ask it something like *"What machine learning experience do you have?"* and it r
 | LLM (general) | Gemini Flash (streaming) — see `GENERAL_MODEL`                          |
 | Speech in/out | Web Speech API + `speechSynthesis`, both client-side                    |
 | Testing | pytest (rag/), Django test runner (chat/); Playwright, Locust, RAGAS planned |
-| Deployment | Docker Compose (backend, frontend, Postgres)                            |
+| Deployment | Vercel (frontend) + Render (backend, Docker) + Supabase (Postgres, pgvector, S3 storage); Docker Compose locally |
 
 ## Architecture
 
 ```
-┌─────────────┐      ┌──────────────────┐       ┌─────────────────────┐
-│   Next.JS   │────▶│   Django REST    │─────▶ │   rag/ (LangChain)  │
-│  (chat UI)  │◀────│    Framework     │◀───── │  load → split →     │
-└─────────────┘      └──────────────────┘       │  embed → retrieve → │
-                             │                  │  generate           │
-                             ▼                  └──────────┬──────────┘
-                      ┌─────────────┐                      │
-                      │ PostgreSQL  │                      ▼
-                      │ (documents, │              ┌───────────────┐
-                      │  sessions,  │              │ Chroma (local)│
-                      │  messages)  │              └───────────────┘
-                      └─────────────┘                      │
-                                                           ▼
-                                                   ┌─────────────────┐
-                                                   │Groq (streaming) │
-                                                   └─────────────────┘
+┌──────────────┐      ┌──────────────────┐      ┌─────────────────────┐
+│   Next.js    │─────▶│   Django REST    │─────▶│   rag/ (LangChain)  │
+│  chat UI +   │◀─────│    Framework     │◀─────│  load → split →     │
+│  Xia + voice │ NDJSON└─────────┬────────┘      │  embed → retrieve → │
+└──────────────┘                 │               │  generate           │
+                                 ▼               └──────────┬──────────┘
+                        ┌──────────────────┐                │
+                        │    PostgreSQL    │                │
+                        │  documents,      │◀───────────────┘
+                        │  sessions,       │  pgvector similarity search
+                        │  messages,       │
+                        │  + pgvector      │
+                        └──────────────────┘
+                                 │
+        grounded mode ───────────┴─────────── general mode
+              │                                     │
+              ▼                                     ▼
+    ┌───────────────────┐               ┌───────────────────────┐
+    │ Groq (streaming)  │               │ Gemini Flash          │
+    │ cited answers     │               │ no retrieval, no      │
+    └───────────────────┘               │ sources, rate limited │
+                                        └───────────────────────┘
+
+    Gemini also serves embeddings for both ingestion and retrieval.
 ```
 
 **Two parallel data paths, kept intentionally decoupled:**
@@ -75,18 +83,20 @@ backend/
 │   │   ├── a_serializers.py
 │   │   ├── b_views.py           # ChatView (blocking) + ChatStreamView (NDJSON streaming)
 │   │   ├── c_urls.py
-│   │   └── test_stream_view.py   # streaming endpoint tests (Django test runner)
+│   │   ├── d_throttles.py         # per-visitor limit, general mode only
+│   │   ├── test_stream_view.py     # streaming endpoint tests
+│   │   └── test_general_mode.py     # mode routing, no-retrieval, throttling
 │   └── rag/                    # Standalone RAG pipeline (plain Python, no Django deps)
 │       ├── a_loader.py          # PDF loading
 │       ├── b_splitter.py         # Chunking
 │       ├── c_embeddings.py        # Local embedding model
-│       ├── d_vectorstore.py        # Chroma build / load / add / search
+│       ├── d_vectorstore.py        # pgvector build / load / add / search
 │       ├── e_prompts.py             # Grounding prompt template
 │       ├── f_chains.py               # Retrieval + generation chain (Groq, blocking + streaming)
 │       ├── g_stream_filter.py         # Strips <think> reasoning blocks from a token stream
 │       ├── test_f_chains_stream.py     # pytest
 │       └── test_g_stream_filter.py      # pytest
-├── data/                     # Chroma persistence (gitignored)
+├── data/                     # vestigial Chroma dir, pre-pgvector (gitignored)
 ├── media/                    # Uploaded files (gitignored)
 ├── pytest.ini                # pythonpath = apps, for rag/'s standalone pytest suite
 ├── Dockerfile
@@ -94,10 +104,23 @@ backend/
 
 frontend/
 ├── app/
-│   ├── layout.js
-│   └── page.js              # renders ChatWindow
+│   ├── layout.js             # pre-paint bootstrap: theme, rail, voice, STT support
+│   ├── globals.css            # ported from aixia-chat-mockup.html
+│   └── page.js                 # renders ChatWindow
 ├── components/
-│   └── ChatWindow.js          # chat UI: sidebar, streaming message list, input, sources display
+│   ├── ChatWindow.js          # conversation state, chat list, mode, voice wiring
+│   ├── AppHeader.js            # Xia, mode switch, status, voice + theme toggles
+│   ├── Composer.js              # input, mic button, document upload
+│   ├── Markdown.js               # hand-rolled; [n] markers become source buttons
+│   ├── MessageRow.js / SourcesPanel.js / Sidebar.js / ThinkingBubble.js
+│   ├── typingPacer.js            # evens out Groq's lumpy token bursts
+│   └── xia/
+│       ├── Xia.js                # the abstract SVG sigil, four states
+│       ├── useXiaState.js         # idle | listening | thinking | speaking
+│       ├── chatStream.js           # one turn: POST, parse NDJSON, pace the reveal
+│       ├── tts.js                   # createSpeaker() over speechSynthesis
+│       ├── stt.js                    # createListener() over Web Speech API
+│       └── speakable.js               # Markdown -> something worth hearing
 ├── Dockerfile
 └── package.json
 
@@ -176,7 +199,8 @@ step here once support is broad enough to rely on.
 
 - Python 3.11+
 - PostgreSQL, running locally
-- A free [Groq API key](https://console.groq.com) (used for LLM inference — embeddings stay local)
+- A free [Groq API key](https://console.groq.com) — grounded chat
+- A free [Google AI Studio key](https://aistudio.google.com/apikey) — embeddings *and* general-mode chat. Embeddings are no longer local: the `sentence-transformers` model pulled in torch, which is larger than a free-tier container has to give.
 - Node.js 20+ (for the frontend)
 - Alternatively: Docker + Docker Compose (see [Setup via Docker](#setup-via-docker) below — no local Python/Node/Postgres needed)
 
@@ -203,7 +227,7 @@ step here once support is broad enough to rely on.
    DB_HOST=localhost
    DB_PORT=5432
    GROQ_API_KEY=your-groq-api-key
-   GROQ_MODEL=qwen/qwen3.6-27b
+   GROQ_MODEL=qwen/qwen3.8-27b
    ```
 
 4. **Run migrations:**
@@ -264,9 +288,17 @@ Both servers bind to `0.0.0.0` by default, so other devices on your Wi-Fi/LAN ca
 
 Copy `backend/.env.example` to `backend/.env` and set only the values needed for your environment. The example file is a template and must not contain real secrets.
 
-For local development, set `DJANGO_DEBUG=True` to opt into the local-only development secret fallback, then use either `DATABASE_URL` (a full `postgres://` URL) or the split variables `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT` when `DATABASE_URL` is unset. LLM inference always goes through Groq — set `GROQ_API_KEY` and, optionally, `GROQ_MODEL` (defaults to `qwen/qwen3.6-27b`). Two optional knobs control sampling: `GROQ_TEMPERATURE` (answers, default `0.2`) and `GROQ_EXTRAS_TEMPERATURE` (follow-up suggestions and conversation titles, default `0.7`). `RETRIEVAL_K` (default `5`) sets how many chunks each question retrieves. General mode runs on a separate provider and has its own knobs: `GENERAL_MODEL` (default `gemini-3.6-flash`), `GENERAL_MAX_TOKENS` (default `1200`) and `GENERAL_TEMPERATURE` (default `0.7`); it reuses the `GOOGLE_API_KEY` that already serves embeddings, so it needs no new credential. Its per-visitor rate limit is the `general_chat` scope in `REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']`. `NEXT_PUBLIC_API_ORIGIN` should point to the Django API (falls back to `<current-hostname>:8000` in the browser if unset).
+For local development, set `DJANGO_DEBUG=True` to opt into the local-only development secret fallback, then use either `DATABASE_URL` (a full `postgres://` URL) or the split variables `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT` when `DATABASE_URL` is unset. Grounded answers go through Groq — set `GROQ_API_KEY` and, optionally, `GROQ_MODEL` (defaults to `qwen/qwen3.8-27b`; note `qwen3.6` and `llama-3.3-70b-versatile` both 404 on a current free key). Two optional knobs control sampling: `GROQ_TEMPERATURE` (answers, default `0.2`) and `GROQ_EXTRAS_TEMPERATURE` (follow-up suggestions and conversation titles, default `0.7`). `RETRIEVAL_K` (default `5`) sets how many chunks each question retrieves. General mode runs on a separate provider and has its own knobs: `GENERAL_MODEL` (default `gemini-3.6-flash`), `GENERAL_MAX_TOKENS` (default `1200`) and `GENERAL_TEMPERATURE` (default `0.7`); it reuses the `GOOGLE_API_KEY` that already serves embeddings, so it needs no new credential. Its per-visitor rate limit is the `general_chat` scope in `REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']`.
 
-For Render, set `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=False`, `DATABASE_URL`, `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `GROQ_API_KEY`, and `GROQ_MODEL`. For Vercel, set `NEXT_PUBLIC_API_ORIGIN` to the Render API URL. Comma-separate multiple hostnames or allowed frontend origins in `ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS`.
+**The frontend reaches the backend through a server-side proxy, not from the browser.** `next.config.mjs` rewrites `/api`, `/admin` and `/static` to `BACKEND_INTERNAL_URL`, which is read fresh from the environment on every container start — so changing it never needs a rebuild, and no backend URL is ever inlined into the browser bundle. There is no `NEXT_PUBLIC_*` API origin, and there should not be one.
+
+Locally, the host dev server needs `frontend/.env.local` with `BACKEND_INTERNAL_URL=http://localhost:8001`; inside Docker Compose the default (`http://backend:8000`) already resolves.
+
+**On Vercel** set `BACKEND_INTERNAL_URL` to the Render service URL.
+
+**On Render** set `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=False`, `DATABASE_URL` (the Supabase *session* pooler on port 5432 — the direct connection is IPv6-only and Render cannot reach it, and the transaction pooler on 6543 breaks psycopg3's prepared statements), `GROQ_API_KEY`, `GROQ_MODEL`, `GOOGLE_API_KEY`, the `AWS_*` storage values, and — required, not optional — `CSRF_TRUSTED_ORIGINS` containing the frontend's origin with its scheme. Without it the proxied admin login returns 403 and document upload can never be authorised. Comma-separate multiple values.
+
+Note that in `render.yaml`, `sync:` takes a boolean meaning "not managed here, prompt for it"; a literal value needs `value:`. Only `value:` entries are re-applied when the blueprint syncs.
 
 ## Usage
 
@@ -315,8 +347,11 @@ Sources arrive as a single event immediately after retrieval, before generation 
 
 A few choices worth calling out (fuller reasoning to live in `docs/adr/` as the project matures):
 
-- **Chroma over FAISS** — chosen for built-in disk persistence and metadata handling, at the cost of slightly more dependencies. Not a hardware/performance decision; both are lightweight enough for local use.
-- **Local embeddings (`all-MiniLM-L6-v2`) over an API-based embedding service** — free, no external calls, small enough to not compete with the LLM for resources.
+- **pgvector over Chroma** — *superseded an earlier decision.* Chroma persisted to a directory on disk, which a PaaS container discards on every deploy. Vectors now live in the application's own Postgres, so there is one durable store and one backup story instead of two.
+- **Gemini embeddings over local `sentence-transformers`** — *also superseded.* The local model was free and needed no key, but it pulled in torch: roughly 3 GB of image and several hundred MB resident per worker, well past a free-tier container. `gemini-embedding-001` is truncated to 768 dimensions because pgvector's HNSW index refuses anything wider than 2000; the model is trained with Matryoshka representation learning, so truncating is supported rather than a lossy hack. Changing that number invalidates every stored vector.
+- **Two models, split by mode** — grounded answers stay on Groq; general chat runs on Gemini Flash. Groq's free tier caps *output* tokens per minute for the whole organisation and rejects a request up front when `max_tokens` exceeds what is left, so open-ended general chat would drain the budget and take the grounded demo down with it.
+- **An abstract presence rather than a character** — Xia is a sigil, not a face. A mascot risks reading as a toy on a portfolio piece, and lip-sync is impossible anyway: `speechSynthesis` renders straight to the audio device and cannot be routed into Web Audio for an amplitude envelope, and its `boundary` event is unreliable outside Chrome. An abstract form needs only start and end.
+- **The Django admin proxied through Next** — not cosmetic. Admin served from the backend's own domain sets a host-only session cookie the browser never sends to the frontend's origin, so uploads stay 403 however many times you sign in.
 - **`rag/` kept fully decoupled from Django** — the retrieval/generation logic has no framework dependency, so it can be tested and iterated on independently of the web layer.
 - **Groq for LLM inference** — free-tier, no local GPU/RAM requirements, and fast enough to stream comfortably; the tradeoff is a dependency on an external API and its rate limits, unlike the fully local embeddings/vector-store path.
 - **CORS via `django-cors-headers`** — Next.js dev server (`localhost:3000`) and Django (`127.0.0.1:8000`) are different origins; the browser blocks cross-origin requests by default, so `CORS_ALLOWED_ORIGINS` explicitly permits the frontend's origin.
@@ -335,7 +370,11 @@ A few choices worth calling out (fuller reasoning to live in `docs/adr/` as the 
 - [x] Unit tests for the streaming pipeline (`pytest` for `rag/`, Django test runner for `chat/`)
 - [ ] QA suite: Playwright E2E, Locust load testing
 - [ ] RAGAS-based retrieval/faithfulness evaluation
-- [ ] Free-tier deployment (frontend + backend + hosted Postgres w/ pgvector)
+- [x] Free-tier deployment (Vercel + Render + Supabase Postgres w/ pgvector)
+- [x] Two-way browser voice (Web Speech API in, `speechSynthesis` out)
+- [x] Xia: an animated four-state presence driven by the existing stream events
+- [x] Two modes: grounded RAG with citations, and rate-limited general chat
+- [ ] A dedicated hands-free `/voice` view (`streamChat()` was extracted to unblock it)
 - [ ] Optional: air quality sensor data (AeroBand project) as a second retrieval domain
 
 ## License

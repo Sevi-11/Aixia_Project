@@ -7,7 +7,11 @@ import MessageRow from "./MessageRow";
 import Sidebar from "./Sidebar";
 import SourcesPanel from "./SourcesPanel";
 import { ArrowDownIcon } from "./icons";
-import { createTypingPacer } from "./typingPacer";
+import { useXiaState } from "./xia/useXiaState";
+import { streamChat } from "./xia/chatStream";
+import { createSpeaker } from "./xia/tts";
+import { speakableText } from "./xia/speakable";
+import { createListener } from "./xia/stt";
 import { THEME_TINT } from "./themeTint";
 
 const HISTORY_KEY = "aixia-chat-history";
@@ -17,12 +21,8 @@ const RAIL_KEY = "aixia-sidebar-open";
 // were a preference. Those values are indistinguishable from real choices,
 // so the key is retired rather than migrated.
 const THEME_KEY = "aixia-theme-v2";
+const VOICE_KEY = "aixia-voice";
 const EMPTY_MESSAGES = [];
-// Relative paths: Next.js proxies these to the backend server-side (see
-// next.config.mjs rewrites), so the browser never needs to know the backend's
-// host/port — that means no NEXT_PUBLIC_ build-time coupling, and no rebuild
-// when the backend's port changes.
-const STREAM_URL = "/api/chat/stream/";
 const HEALTH_URL = "/api/healthz";
 const HEALTH_INTERVAL_MS = 60_000;
 
@@ -44,6 +44,23 @@ const STARTER_POOL = [
 ];
 const STARTER_COUNT = 3;
 
+// General mode has its own openers: the grounded pool is entirely about Vince,
+// which is the one subject this mode declines.
+const GENERAL_STARTER_POOL = [
+  "Explain vector embeddings in plain English.",
+  "Help me draft a short follow-up email after an interview.",
+  "What's the difference between SQL and NoSQL?",
+  "Walk me through how HTTPS actually works.",
+  "Give me three ideas for a weekend project in Python.",
+  "Summarise the tradeoffs between REST and GraphQL.",
+  "How should I structure a technical README?",
+  "What makes a good unit test?",
+  "Explain Big-O notation with a real example.",
+  "What questions should I ask at the end of an interview?",
+  "Explain Docker to someone who has never used it.",
+  "How do I choose between a monolith and microservices?",
+];
+
 // FNV-1a. Any stable string-to-int would do; the point is that the same chat
 // always draws the same three prompts — so they do not reshuffle under the
 // cursor on re-render, or change between the server's HTML and the client's.
@@ -56,8 +73,8 @@ function hashString(value) {
   return hash >>> 0;
 }
 
-function startersFor(chatId) {
-  const remaining = STARTER_POOL.slice();
+function startersFor(chatId, pool = STARTER_POOL) {
+  const remaining = pool.slice();
   const picked = [];
   let seed = hashString(chatId || "aixia");
   while (picked.length < STARTER_COUNT && remaining.length) {
@@ -80,7 +97,7 @@ function createChatId() {
 }
 
 function makeChat() {
-  return { id: createChatId(), title: "New conversation", titleSetByUser: false, messages: [], sessionId: null, updatedAt: Date.now() };
+  return { id: createChatId(), title: "New conversation", titleSetByUser: false, messages: [], sessionId: null, mode: "grounded", updatedAt: Date.now() };
 }
 
 function loadChats() {
@@ -136,6 +153,11 @@ export default function ChatWindow() {
       ? "dark"
       : "light"
   ));
+  const [voiceOn, setVoiceOn] = useState(() => (
+    typeof document !== "undefined" && document.documentElement.getAttribute("data-voice") === "on"
+  ));
+  const [listening, setListening] = useState(false);
+  const [micError, setMicError] = useState(null);
   const [status, setStatus] = useState("connecting");
   // The panel keeps its sources after closing. Clearing them would swap the
   // cards for the empty state mid-slide-out, and the viewer would watch the
@@ -146,7 +168,35 @@ export default function ChatWindow() {
   const scrollRef = useRef(null);
   const messagesEndRef = useRef(null);
 
+  // Xia is one figure on screen but several chats can stream at once, so she
+  // reflects the ACTIVE chat only. runChatStream reads this ref at event time
+  // rather than closing over activeChatId, which would be stale for a stream
+  // that outlives a chat switch.
+  const { state: xiaState, send: sendXia } = useXiaState();
+  const activeChatIdRef = useRef(null);
+  // Read inside a running stream, so flipping the toggle mid-answer takes
+  // effect on that answer rather than the next one.
+  const voiceOnRef = useRef(voiceOn);
+
+  // Built on first use, not at module scope: `window.speechSynthesis` does not
+  // exist while this renders on the server.
+  const speakerRef = useRef(null);
+  function getSpeaker() {
+    if (!speakerRef.current) {
+      speakerRef.current = createSpeaker({
+        // "reveal" rather than a state of its own: from `thinking` it moves her
+        // to speaking, and from `speaking` it is a no-op. Audio starting is the
+        // same event as text starting, as far as she is concerned.
+        onStart: () => sendXia("reveal"),
+        onEnd: () => sendXia("settle"),
+      });
+    }
+    return speakerRef.current;
+  }
+
   const activeChat = chats.find((chat) => chat.id === activeChatId) || chats[0];
+  // Threads saved before modes existed have none; they were grounded.
+  const mode = activeChat?.mode === "general" ? "general" : "grounded";
   const messages = activeChat?.messages || EMPTY_MESSAGES;
   const loading = loadingChats.has(activeChat?.id);
 
@@ -154,6 +204,12 @@ export default function ChatWindow() {
     const restored = loadChats();
     const fresh = makeChat();
     // Browser storage is external state; initialize it after hydration.
+    //
+    // This is the cascading render the rule warns about, and it is the point:
+    // localStorage does not exist on the server, so the list cannot be seeded
+    // in a useState initialiser without the server and client rendering
+    // different HTML. One extra render on mount is the price of not flashing.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setChats([fresh, ...restored]);
     setActiveChatId(fresh.id);
     // Adopt what the bootstrap resolved before paint, then take the attribute
@@ -227,6 +283,70 @@ export default function ChatWindow() {
     }
   }, [railCollapsed]);
 
+  const voiceSettled = useRef(false);
+  useEffect(() => {
+    voiceOnRef.current = voiceOn;
+    document.documentElement.setAttribute("data-voice", voiceOn ? "on" : "off");
+    if (!voiceSettled.current) {
+      // Adoption pass: apply what the bootstrap already resolved, write nothing.
+      voiceSettled.current = true;
+      return;
+    }
+    if (!voiceOn) speakerRef.current?.cancel();
+    try {
+      localStorage.setItem(VOICE_KEY, voiceOn ? "on" : "off");
+    } catch {
+      // Storage can be disabled; the setting still applies for this session.
+    }
+  }, [voiceOn]);
+
+  const listenerRef = useRef(null);
+  // sendMessage is redefined every render; the listener is built once, so its
+  // callbacks reach the current one through a ref rather than a stale closure.
+  const sendMessageRef = useRef(null);
+
+  function getListener() {
+    if (!listenerRef.current) {
+      listenerRef.current = createListener({
+        onStart: () => { setMicError(null); setListening(true); sendXia("listen"); },
+        onInterim: (text) => setInput(text),
+        onFinal: (text) => {
+          // Dictation ends by asking the question. stop() first, so the
+          // recogniser is already winding down while the request goes out.
+          listenerRef.current?.stop();
+          sendMessageRef.current?.(text);
+        },
+        onError: (message) => setMicError(message),
+        // Not a blanket cancel: by the time this fires after a final result,
+        // the question is already in flight and she is thinking, not listening.
+        onEnd: () => { setListening(false); sendXia("endListen"); },
+      });
+    }
+    return listenerRef.current;
+  }
+
+  function toggleListening() {
+    const listener = getListener();
+    if (listener.listening) { listener.stop(); return; }
+    // Barge-in: speaking over her should interrupt her, not talk across her.
+    speakerRef.current?.cancel();
+    setInput("");
+    listener.start();
+  }
+
+  // Release the microphone if the component goes away mid-dictation.
+  useEffect(() => () => {
+    listenerRef.current?.abort();
+    speakerRef.current?.cancel();
+  }, []);
+
+  // A microphone complaint is about the last attempt only.
+  useEffect(() => {
+    if (!micError) return;
+    const clear = setTimeout(() => setMicError(null), 6000);
+    return () => clearTimeout(clear);
+  }, [micError]);
+
   // The status pill reports the backend, not the frontend, so it has to ask.
   // Render's free tier sleeps the service, and the first request after a sleep
   // takes ~30s to cold-start — the pill sitting on "connecting" through that
@@ -249,6 +369,21 @@ export default function ChatWindow() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  useEffect(() => {
+    const id = activeChat?.id ?? null;
+    // Guarded on an ACTUAL change of conversation. This effect also re-runs
+    // whenever loadingChats changes, and a stream removes its id there in its
+    // finally block -- so cancelling unconditionally here killed the speaker
+    // one chunk into every answer, because the answer starts being spoken at
+    // the very moment the stream finishes.
+    if (activeChatIdRef.current === id) return;
+    activeChatIdRef.current = id;
+    // Xia follows the conversation on screen, and so does her voice: reading
+    // out an answer the reader has navigated away from is worse than silence.
+    speakerRef.current?.cancel();
+    sendXia(loadingChats.has(id) ? "ask" : "cancel");
+  }, [activeChat?.id, loadingChats, sendXia]);
 
   function handleScroll() {
     const node = scrollRef.current;
@@ -309,79 +444,79 @@ export default function ChatWindow() {
   async function runChatStream(chatId, requestBody) {
     setLoadingChats((current) => new Set(current).add(chatId));
 
-    // Tokens are revealed through the pacer rather than painted on arrival, so
-    // the answer types itself evenly instead of lurching a phrase at a time.
-    const pacer = createTypingPacer({
-      onReveal: (chunk) => updateLastMessage(chatId, (message) => ({ ...message, content: message.content + chunk })),
-      onSettled: () => updateLastMessage(chatId, (message) => ({ ...message, streaming: false })),
-    });
+    // Xia reflects the conversation on screen, so events from a stream the
+    // reader has navigated away from are dropped rather than animated.
+    const forXia = (event) => { if (chatId === activeChatIdRef.current) sendXia(event); };
+
+    // Reads the answer aloud when voice is on, and resolves when she stops.
+    // Returns false when nothing was spoken, so the caller knows it still owes
+    // Xia a settle -- exactly one of the two must happen, or she is left
+    // mid-sentence forever.
+    const speakIfEnabled = async (text) => {
+      const speaker = getSpeaker();
+      if (chatId !== activeChatIdRef.current || !voiceOnRef.current || !speaker.isAvailable()) return false;
+      const spoken = speakableText(text);
+      if (!spoken) return false;
+      await speaker.speak(spoken);
+      return true;
+    };
 
     try {
-      const response = await fetch(STREAM_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
+      await streamChat(requestBody, {
+        onStatus: setStatus,
+
+        onSources: (sources) => updateLastMessage(chatId, (message) => ({ ...message, sources })),
+
+        onReveal: (chunk) => {
+          forXia("reveal");
+          updateLastMessage(chatId, (message) => ({ ...message, content: message.content + chunk }));
+        },
+
+        onSuggestions: (suggestions) => updateLastMessage(chatId, (message) => ({ ...message, suggestions })),
+
+        onTitle: (title) => {
+          // The opening question was used as a placeholder title the moment the
+          // message was sent; this is the summary that replaces it. A title the
+          // reader chose themselves always wins.
+          setChats((current) => current.map((chat) => (
+            chat.id === chatId && !chat.titleSetByUser
+              ? { ...chat, title, updatedAt: Date.now() }
+              : chat
+          )));
+        },
+
+        onSession: ({ sessionId, sessionToken }) => updateChat(chatId, { sessionId, sessionToken }),
+
+        onSettled: async (fullText) => {
+          updateLastMessage(chatId, (message) => ({ ...message, streaming: false }));
+          // Speaking begins only once the text has finished revealing.
+          // Synthesis mid-stream would queue an utterance per token burst and
+          // read the answer back in overlapping fragments.
+          if (!(await speakIfEnabled(fullText))) forXia("settle");
+        },
+
+        onError: async ({ text, revealed, friendly, midStream }) => {
+          updateLastMessage(chatId, (message) => {
+            // An error carried by the stream marks the turn as failed even if
+            // some of the answer had arrived. A failure of the request itself
+            // keeps a half-written answer as an ordinary message -- it is the
+            // connection that broke, not the reply.
+            if (midStream) {
+              return { ...message, role: "error", content: message.content || text, streaming: false };
+            }
+            return revealed
+              ? { ...message, streaming: false }
+              : { ...message, role: "error", content: text, streaming: false };
+          });
+
+          // She says it rather than simply stopping. A character that goes
+          // quiet reads as a bug; one that explains reads as a limit.
+          if (!(await speakIfEnabled(revealed ? "" : text))) forXia("cancel");
+        },
       });
-      if (!response.ok || !response.body) throw new Error(`Server responded with ${response.status}`);
-      setStatus("online");
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop();
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          const event = JSON.parse(line);
-
-          if (event.type === "sources") {
-            updateLastMessage(chatId, (message) => ({ ...message, sources: event.sources }));
-          } else if (event.type === "token") {
-            pacer.push(event.content);
-          } else if (event.type === "suggestions") {
-            updateLastMessage(chatId, (message) => ({ ...message, suggestions: event.suggestions }));
-          } else if (event.type === "title") {
-            // The opening question was used as a placeholder title the moment
-            // the message was sent; this is the summary that replaces it. A
-            // title the reader chose themselves always wins.
-            setChats((current) => current.map((chat) => (
-              chat.id === chatId && !chat.titleSetByUser
-                ? { ...chat, title: event.title, updatedAt: Date.now() }
-                : chat
-            )));
-          } else if (event.type === "done") {
-            updateChat(chatId, { sessionId: event.session_id, sessionToken: event.session_token });
-            // Not `streaming: false` — the pacer may still have text queued.
-            // It flips that flag itself once the buffer has drained.
-            pacer.close();
-          } else if (event.type === "error") {
-            pacer.flush();
-            updateLastMessage(chatId, (message) => ({ ...message, role: "error", content: message.content || event.message, streaming: false }));
-          }
-        }
-      }
-
-      // The server can close without a "done" (a dropped connection mid-answer);
-      // settle whatever is buffered rather than leaving a caret blinking forever.
-      pacer.close();
-      await pacer.whenSettled();
-    } catch (error) {
-      setStatus("offline");
-      pacer.flush();
-      updateLastMessage(chatId, (message) => (
-        message.content
-          ? { ...message, streaming: false }
-          : { ...message, role: "error", content: `I couldn't connect to AIxia. ${error.message}`, streaming: false }
-      ));
     } finally {
-      // Cleared only after the reveal finishes, so the composer does not
-      // re-enable while the answer is still typing itself out.
+      // Cleared only after the reveal -- and any speech -- finishes, so the
+      // composer does not re-enable while the answer is still arriving.
       setLoadingChats((current) => {
         const next = new Set(current);
         next.delete(chatId);
@@ -395,6 +530,8 @@ export default function ChatWindow() {
     if (!question || loadingChats.has(activeChat?.id) || !activeChat) return;
 
     const chatId = activeChat.id;
+    // One read, shared by both messages: taking the clock inside the state
+    // updater instead would re-stamp them on unrelated re-renders.
     const now = Date.now();
     const userMessage = { role: "user", content: question, at: now };
     const assistantPlaceholder = { role: "assistant", content: "", sources: [], streaming: true, at: now };
@@ -402,8 +539,10 @@ export default function ChatWindow() {
     const shouldAutoTitle = !activeChat.messages.length && !activeChat.titleSetByUser;
     updateChat(chatId, { messages: nextMessages, title: shouldAutoTitle ? question.slice(0, 38) : activeChat.title });
     setInput("");
+    speakerRef.current?.cancel();
+    sendXia("ask");
 
-    await runChatStream(chatId, { session_id: activeChat.sessionId, session_token: activeChat.sessionToken, question });
+    await runChatStream(chatId, { session_id: activeChat.sessionId, session_token: activeChat.sessionToken, question, mode });
   }
 
   function regenerateMessage(chatId) {
@@ -417,7 +556,14 @@ export default function ChatWindow() {
       suggestions: undefined,
       streaming: true,
     }));
-    runChatStream(chatId, { session_id: chat.sessionId, session_token: chat.sessionToken, regenerate: true });
+    speakerRef.current?.cancel();
+    sendXia("ask");
+    runChatStream(chatId, {
+      session_id: chat.sessionId,
+      session_token: chat.sessionToken,
+      regenerate: true,
+      mode: chat.mode === "general" ? "general" : "grounded",
+    });
   }
 
   function setMessageFeedback(chatId, messageIndex, value) {
@@ -456,22 +602,32 @@ export default function ChatWindow() {
     URL.revokeObjectURL(url);
   }
 
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+  });
+
   const showSources = useCallback((sources, index) => setSourcesView({ open: true, sources, index }), []);
   const closeSources = useCallback(() => setSourcesView((view) => ({ ...view, open: false })), []);
 
-  const starters = useMemo(() => startersFor(activeChat?.id), [activeChat?.id]);
+  const starters = useMemo(
+    () => startersFor(activeChat?.id, mode === "general" ? GENERAL_STARTER_POOL : STARTER_POOL),
+    [activeChat?.id, mode],
+  );
 
   // A divider is emitted only where the day actually changes. Threads saved
   // before messages carried timestamps have none, and get no divider rather
   // than a fabricated one.
   const rows = useMemo(() => {
+    const out = [];
     let lastDay = null;
-    return messages.map((message, index) => {
+    for (let index = 0; index < messages.length; index += 1) {
+      const message = messages[index];
       const day = message.at ? dayLabel(message.at) : null;
       const divider = day && day !== lastDay ? day : null;
       if (day) lastDay = day;
-      return { message, index, divider };
-    });
+      out.push({ message, index, divider });
+    }
+    return out;
   }, [messages]);
 
   return (
@@ -507,6 +663,10 @@ export default function ChatWindow() {
           <AppHeader
             title={activeChat?.title || "New conversation"}
             status={status}
+            xiaState={xiaState}
+            mode={mode}
+            onSetMode={(next) => activeChat && updateChat(activeChat.id, { mode: next })}
+            onToggleVoice={() => setVoiceOn((on) => !on)}
             onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
             onOpenSidebar={() => setRailCollapsed(false)}
           />
@@ -515,8 +675,17 @@ export default function ChatWindow() {
             <div className="chat-thread">
               {messages.length === 0 ? (
                 <div className="empty-hero">
-                  <h1>Ask me anything about <em>Vince</em></h1>
-                  <p>I answer from his CV, projects and notes — grounded in the documents, with the sources you can check. He&apos;s Sean Vincent Vien V. Viñas on paper, but goes by Vince.</p>
+                  {mode === "general" ? (
+                    <>
+                      <h1>Ask me <em>anything</em></h1>
+                      <p>General questions, explanations, drafting, code. This mode isn&apos;t grounded in any documents, so there are no sources to check — for anything about Vince, switch to <strong>About Vince</strong>.</p>
+                    </>
+                  ) : (
+                    <>
+                      <h1>Ask me anything about <em>Vince</em></h1>
+                      <p>I answer from his CV, projects and notes — grounded in the documents, with the sources you can check. He&apos;s Sean Vincent Vien V. Viñas on paper, but goes by Vince.</p>
+                    </>
+                  )}
                   <div className="starter-grid">
                     {starters.map((starter, index) => (
                       <button key={starter} type="button" className="starter-card" onClick={() => sendMessage(starter)}>
@@ -551,6 +720,9 @@ export default function ChatWindow() {
             onExport={exportConversation}
             disabled={loading}
             canExport={messages.length > 0}
+            listening={listening}
+            micError={micError}
+            onToggleListening={toggleListening}
           />
 
           <button

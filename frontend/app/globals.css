@@ -1202,3 +1202,231 @@ html[data-rail="collapsed"] .rail-toggle svg { transform: rotate(180deg); }
   .empty-hero h1 { font-size: 1.6rem; }
   .starter-grid { margin-top: 1.1rem; }
 }
+
+/* ==========================================================================
+   Xia — the assistant's presence  [extension: not drawn in the mockup]
+
+   Built from the mockup's own primitives: one accent colour, the shared
+   easing, the same restraint. Four states, each with one idea:
+     idle      breathing, barely there
+     listening rings travelling outward
+     thinking  arcs orbiting
+     speaking  the core pulsing
+
+   Duration tokens are used ALONE. --fast/--medium already bundle their easing
+   (`180ms var(--ease)`), so writing `var(--medium) var(--ease)` produces two
+   timing functions and the browser drops the whole declaration silently.
+   ========================================================================== */
+
+.xia {
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: grid;
+  place-items: center;
+}
+
+.xia-figure {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: none;
+  stroke: var(--accent);
+  transition: opacity var(--medium);
+}
+
+.xia-ring {
+  stroke-width: 3;
+  opacity: 0.55;
+  transform-origin: 50% 50%;
+}
+
+.xia-core {
+  fill: var(--accent);
+  stroke: none;
+  opacity: 0.85;
+  transform-origin: 50% 50%;
+}
+
+/* r=28 gives a circumference of ~175.9. Two dashes of 20 with gaps of 67.95
+   divide it exactly, so the pattern never visibly seams as it rotates. */
+.xia-arc {
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 20 67.95;
+  opacity: 0;
+  transform-origin: 50% 50%;
+  transition: opacity var(--medium);
+}
+
+.xia-ripple {
+  stroke-width: 2;
+  opacity: 0;
+  transform-origin: 50% 50%;
+}
+
+/* ── idle ───────────────────────────────────────────────────────────────── */
+.xia[data-state="idle"] .xia-ring { animation: xia-breathe 5.5s var(--ease) infinite; }
+.xia[data-state="idle"] .xia-core { animation: xia-dim 5.5s var(--ease) infinite; }
+
+/* ── listening ──────────────────────────────────────────────────────────── */
+.xia[data-state="listening"] .xia-ring { opacity: 0.8; }
+.xia[data-state="listening"] .xia-core { animation: xia-dim 1.6s var(--ease) infinite; }
+.xia[data-state="listening"] .xia-ripple-a { animation: xia-ripple 1.8s var(--ease) infinite; }
+.xia[data-state="listening"] .xia-ripple-b { animation: xia-ripple 1.8s var(--ease) 0.9s infinite; }
+
+/* ── thinking ───────────────────────────────────────────────────────────── */
+.xia[data-state="thinking"] .xia-arc {
+  opacity: 0.9;
+  animation: xia-orbit 1.6s linear infinite;
+}
+.xia[data-state="thinking"] .xia-ring { opacity: 0.35; }
+.xia[data-state="thinking"] .xia-core { animation: xia-think 1.6s var(--ease) infinite; }
+
+/* ── speaking ───────────────────────────────────────────────────────────── */
+/* Two pulses of different periods, so the rhythm reads as speech rather than
+   as a metronome. */
+.xia[data-state="speaking"] .xia-ring { animation: xia-speak-ring 0.9s var(--ease) infinite; }
+.xia[data-state="speaking"] .xia-core { animation: xia-speak-core 0.55s var(--ease) infinite; }
+
+@keyframes xia-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.45; }
+  50%      { transform: scale(1.05); opacity: 0.7; }
+}
+
+@keyframes xia-dim {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.9; }
+}
+
+@keyframes xia-ripple {
+  0%   { transform: scale(0.75); opacity: 0.55; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes xia-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes xia-think {
+  0%, 100% { transform: scale(0.82); opacity: 0.5; }
+  50%      { transform: scale(0.95); opacity: 0.85; }
+}
+
+@keyframes xia-speak-ring {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50%      { transform: scale(1.08); opacity: 0.9; }
+}
+
+@keyframes xia-speak-core {
+  0%, 100% { transform: scale(0.9); opacity: 0.8; }
+  50%      { transform: scale(1.22); opacity: 1; }
+}
+
+/* Motion is the whole mechanism here, so with it suppressed the state has to
+   survive in colour and weight alone: opacity stands in for movement. */
+@media (prefers-reduced-motion: reduce) {
+  .xia-figure *,
+  .xia-figure {
+    animation: none !important;
+    transition: none !important;
+  }
+  .xia[data-state="idle"] .xia-ring { opacity: 0.4; }
+  .xia[data-state="listening"] .xia-ring,
+  .xia[data-state="listening"] .xia-ripple-a { opacity: 0.85; }
+  .xia[data-state="thinking"] .xia-arc { opacity: 0.9; }
+  .xia[data-state="speaking"] .xia-ring { opacity: 1; }
+  .xia[data-state="speaking"] .xia-core { transform: scale(1.15); }
+}
+
+/* The voice button follows the theme button's rule exactly: its markup never
+   derives from the setting, because the setting comes from storage and the
+   server cannot know it. The pre-paint bootstrap in layout.js puts the answer
+   on <html>, and the icon swap keys off that attribute alone. */
+:root[data-voice="on"] .voice-icon > :first-child { opacity: 0; transform: rotate(90deg) scale(0.5); }
+:root[data-voice="on"] .voice-icon > :last-child { opacity: 1; transform: none; }
+:root[data-voice="on"] .icon-btn:has(.voice-icon) { color: var(--accent); }
+
+/* The mic is rendered unconditionally and hidden here when the browser has no
+   SpeechRecognition to drive it (Firefox, at the time of writing). Feature
+   detection happens in the pre-paint bootstrap, for the same reason the theme
+   does: React must render what the server rendered. Typing is unaffected. */
+:root[data-stt="no"] .mic-btn { display: none; }
+
+.mic-btn.is-listening {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* The mic is the one control whose pulse should survive reduced-motion: it is
+   the only signal that the microphone is currently open. */
+.mic-btn.is-listening::after {
+  content: "";
+  position: absolute;
+  inset: -0.25rem;
+  border-radius: inherit;
+  border: 1px solid var(--accent);
+  opacity: 0.5;
+  animation: mic-listening 1.4s var(--ease) infinite;
+}
+
+@keyframes mic-listening {
+  0%   { transform: scale(0.9); opacity: 0.55; }
+  100% { transform: scale(1.25); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mic-btn.is-listening::after { animation: none; opacity: 0.6; }
+}
+
+/* ── Mode switch ─────────────────────────────────────────────────────────
+   A segmented control, not a toggle. A single button labelled with a mode
+   cannot say whether that is the mode you are in or the one you would switch
+   to, and here that ambiguity decides whether an answer carries sources. */
+.mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-1);
+}
+
+.mode-option {
+  border: 0;
+  cursor: pointer;
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--utility);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transition: background var(--fast), color var(--fast);
+}
+
+.mode-option:hover { color: var(--text-primary); }
+
+.mode-option.is-active {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+.mode-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.mode-short { display: none; }
+
+/* The header's right group already sheds the status label at this width; the
+   mode names go short rather than the control disappearing, because which
+   mode you are in is the one thing that must never be a guess. */
+@media (max-width: 47.5rem) {
+  .mode-long { display: none; }
+  .mode-short { display: inline; }
+  .mode-option { padding: 0.3rem 0.5rem; }
+}

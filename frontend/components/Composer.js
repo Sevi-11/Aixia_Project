@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { DownloadIcon, PaperclipIcon, PlusIcon, SendIcon } from "./icons";
+import { DownloadIcon, MicIcon, PaperclipIcon, PlusIcon, SendIcon } from "./icons";
 
 const UPLOAD_URL = "/api/documents/upload/";
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // Mirrors the backend's own ceiling.
 
-export default function Composer({ value, onChange, onSend, onExport, disabled, canExport }) {
+export default function Composer({ value, onChange, onSend, onExport, disabled, canExport, listening, micError, onToggleListening }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [attach, setAttach] = useState(null); // { state: 'busy'|'done'|'error', message }
   const textareaRef = useRef(null);
@@ -93,6 +93,10 @@ export default function Composer({ value, onChange, onSend, onExport, disabled, 
     }
   }
 
+  // One status line, two sources. A microphone problem is the more urgent of
+  // the two and is the one the reader is waiting on, so it wins.
+  const notice = micError ? { state: "error", message: micError } : attach;
+
   return (
     <div className="composer-dock">
       <div className="composer">
@@ -143,6 +147,18 @@ export default function Composer({ value, onChange, onSend, onExport, disabled, 
             }}
           />
 
+          <button
+            type="button"
+            className={`composer-icon mic-btn${listening ? " is-listening" : ""}`}
+            onClick={onToggleListening}
+            disabled={disabled}
+            aria-pressed={!!listening}
+            title="Dictate a message"
+            aria-label="Dictate a message"
+          >
+            <MicIcon size={17} />
+          </button>
+
           <button type="button" className="send-btn" onClick={submit} disabled={disabled || !value.trim()} aria-label="Send message">
             <SendIcon />
           </button>
@@ -151,12 +167,12 @@ export default function Composer({ value, onChange, onSend, onExport, disabled, 
         {/* Both lines stay mounted and stacked so the upload status crossfades
             over the keyboard hint instead of the two swapping instantly. */}
         <div className="label-swap">
-          <p className={`composer-hint${attach ? " is-hidden" : ""}`}>Enter to send · Shift + Enter for a new line</p>
+          <p className={`composer-hint${notice ? " is-hidden" : ""}`}>Enter to send · Shift + Enter for a new line</p>
           <p
-            className={`attach-status${attach ? "" : " is-hidden"}${attach?.state === "error" ? " is-error" : ""}${attach?.state === "done" ? " is-done" : ""}`}
+            className={`attach-status${notice ? "" : " is-hidden"}${notice?.state === "error" ? " is-error" : ""}${notice?.state === "done" ? " is-done" : ""}`}
             role="status"
           >
-            {attach?.message}
+            {notice?.message}
           </p>
         </div>
       </div>

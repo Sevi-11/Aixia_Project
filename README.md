@@ -9,7 +9,10 @@ Ask it something like *"What machine learning experience do you have?"* and it r
 - 📄 **Document ingestion** — upload a PDF (e.g. a CV), automatically chunked and embedded
 - 🔍 **Retrieval-Augmented Generation** — answers are grounded in retrieved context, not model memory
 - ⚡ **Streaming responses** — answers stream back token-by-token over a chunked HTTP response, instead of waiting for the full generation
-- 🧠 **Fast hosted LLM inference** — powered by Groq (`qwen/qwen3.6-27b`), with local embeddings (no LLM API key needed for retrieval itself)
+- 🧠 **Fast hosted LLM inference** — grounded answers stream from Groq; embeddings come from the Gemini API
+- 🗣️ **Two-way voice** — dictate a question and hear the answer read back, with no audio backend of this project's own ([see the caveat](#voice))
+- 🌀 **Xia** — an animated presence that reflects what the assistant is actually doing: idle, listening, thinking, speaking
+- 🔀 **Two modes** — *About Vince* (grounded, cited, refuses when unsure) and *General* (ungrounded chat, on a separate provider and budget)
 - 💬 **Session-aware chat** — conversations persist across turns via a session ID
 - 📎 **Source citation** — every answer includes which document chunk(s) it was grounded in
 - 🚫 **Hallucination guardrails** — the model is explicitly instructed to say "I don't have that information" rather than fabricate an answer
@@ -22,9 +25,11 @@ Ask it something like *"What machine learning experience do you have?"* and it r
 | Backend | Python, Django, Django REST Framework                                    |
 | Database | PostgreSQL                                                               |
 | RAG orchestration | LangChain                                                                |
-| Embeddings | `sentence-transformers` (`all-MiniLM-L6-v2`), local, no API key required |
-| Vector store | Chroma (persisted locally)                                               |
-| LLM | Groq, running `qwen/qwen3.6-27b` (streaming)                             |
+| Embeddings | Gemini API (`gemini-embedding-001`, truncated to 768 dims)                |
+| Vector store | pgvector, in the application's own Postgres                              |
+| LLM (grounded) | Groq (streaming) — see `GROQ_MODEL`                                    |
+| LLM (general) | Gemini Flash (streaming) — see `GENERAL_MODEL`                          |
+| Speech in/out | Web Speech API + `speechSynthesis`, both client-side                    |
 | Testing | pytest (rag/), Django test runner (chat/); Playwright, Locust, RAGAS planned |
 | Deployment | Docker Compose (backend, frontend, Postgres)                            |
 
@@ -102,6 +107,70 @@ docker-compose.prod.yml         # production overrides (restart policies, env pa
 qa/                           # Playwright, Locust, RAGAS (planned)
 docs/                          # PRD, architecture notes, ADRs (planned)
 ```
+
+## Two modes, two providers
+
+The chat exposes two modes, and they do not share a model.
+
+| | **About Vince** (default) | **General** |
+|---|---|---|
+| Retrieval | pgvector similarity search | none |
+| Sources | cited inline as `[n]` | none, by design |
+| Behaviour | refuses when the context is insufficient | answers generally; hands Vince questions back to grounded mode |
+| Provider | Groq | Gemini Flash |
+| Limit | the default `anon` rate | `10/hour` per visitor |
+
+**Why the split.** Groq's free tier caps *output* tokens per minute at 1000 for
+the whole organisation, and rejects a request up front when `max_tokens`
+exceeds what is left of that ceiling. Grounded answers are short, cited, and
+the thing this project exists to demonstrate, so they keep that budget to
+themselves. Open-ended general chat would drain it in a couple of turns and
+take the grounded demo down with it — during the hour someone is actually
+looking. Gemini's free tier trades that per-minute cliff for a per-day request
+ceiling, which is why general mode is additionally rate limited per visitor in
+`apps/chat/d_throttles.py`.
+
+An omitted `mode` always means grounded. A client that says nothing must never
+start receiving unsourced answers about a real person.
+
+**Degrading honestly.** When the general limit is hit, the assistant says it is
+at capacity and points at the other mode. This matters more than it sounds:
+with voice enabled, going quiet is indistinguishable from being broken.
+
+## Voice
+
+Both directions are driven from the browser — `SpeechRecognition` in,
+`speechSynthesis` out. This project runs no audio backend, pays no per-request
+cost, and nothing waits on a cold start.
+
+**That is not the same as "the audio never leaves the machine", and the
+distinction matters.** `SpeechRecognition` is implemented by the *browser*, and
+most implementations — Chrome's included — stream the captured audio to a
+vendor service to be transcribed. Nothing is sent to *this* application's
+servers, and nothing is stored here, but a microphone press in Chrome does send
+audio to Google. Safari can recognise on-device once the language pack is
+installed. The experimental `processLocally` property (with
+`SpeechRecognition.available()` and `SpeechRecognition.install()`) is the
+standards-track way to require on-device processing, and is the obvious next
+step here once support is broad enough to rely on.
+
+- **Push-to-talk, not always-on.** The microphone opens on a press and closes
+  after one utterance.
+- **Graceful absence.** Firefox keeps `SpeechRecognition` behind a flag, so the
+  microphone button is hidden there and typing is unaffected. Detection happens
+  in the pre-paint bootstrap, alongside the theme, so the server and client
+  render the same HTML.
+- **No lip-sync, deliberately.** `speechSynthesis` renders straight to the audio
+  device; its output cannot be routed into Web Audio for an amplitude envelope,
+  and its `boundary` event is unreliable outside Chrome. Xia is an abstract
+  form precisely so she needs only `start` and `end`. An engine that returned
+  an `AudioBuffer` (Kokoro-82M in-browser, say) would make lip-sync possible —
+  everything speaks to the `createSpeaker()` interface in
+  `frontend/components/xia/tts.js`, so that swap is one file.
+- **Markdown is stripped before speaking**, sharing the renderer's own grammar
+  (`frontend/components/xia/speakable.js`). Citation markers are removed rather
+  than read: hearing "one" after every other sentence is the single most
+  irritating thing a reading voice can do.
 
 ## Prerequisites
 
@@ -195,7 +264,7 @@ Both servers bind to `0.0.0.0` by default, so other devices on your Wi-Fi/LAN ca
 
 Copy `backend/.env.example` to `backend/.env` and set only the values needed for your environment. The example file is a template and must not contain real secrets.
 
-For local development, set `DJANGO_DEBUG=True` to opt into the local-only development secret fallback, then use either `DATABASE_URL` (a full `postgres://` URL) or the split variables `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT` when `DATABASE_URL` is unset. LLM inference always goes through Groq — set `GROQ_API_KEY` and, optionally, `GROQ_MODEL` (defaults to `qwen/qwen3.6-27b`). Two optional knobs control sampling: `GROQ_TEMPERATURE` (answers, default `0.2`) and `GROQ_EXTRAS_TEMPERATURE` (follow-up suggestions and conversation titles, default `0.7`). `RETRIEVAL_K` (default `5`) sets how many chunks each question retrieves. `NEXT_PUBLIC_API_ORIGIN` should point to the Django API (falls back to `<current-hostname>:8000` in the browser if unset).
+For local development, set `DJANGO_DEBUG=True` to opt into the local-only development secret fallback, then use either `DATABASE_URL` (a full `postgres://` URL) or the split variables `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT` when `DATABASE_URL` is unset. LLM inference always goes through Groq — set `GROQ_API_KEY` and, optionally, `GROQ_MODEL` (defaults to `qwen/qwen3.6-27b`). Two optional knobs control sampling: `GROQ_TEMPERATURE` (answers, default `0.2`) and `GROQ_EXTRAS_TEMPERATURE` (follow-up suggestions and conversation titles, default `0.7`). `RETRIEVAL_K` (default `5`) sets how many chunks each question retrieves. General mode runs on a separate provider and has its own knobs: `GENERAL_MODEL` (default `gemini-3.6-flash`), `GENERAL_MAX_TOKENS` (default `1200`) and `GENERAL_TEMPERATURE` (default `0.7`); it reuses the `GOOGLE_API_KEY` that already serves embeddings, so it needs no new credential. Its per-visitor rate limit is the `general_chat` scope in `REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']`. `NEXT_PUBLIC_API_ORIGIN` should point to the Django API (falls back to `<current-hostname>:8000` in the browser if unset).
 
 For Render, set `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=False`, `DATABASE_URL`, `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `GROQ_API_KEY`, and `GROQ_MODEL`. For Vercel, set `NEXT_PUBLIC_API_ORIGIN` to the Render API URL. Comma-separate multiple hostnames or allowed frontend origins in `ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS`.
 

@@ -15,15 +15,15 @@ import { sourceLabel } from "./sourceLabel";
  * something readable instead of throwing.
  */
 
-const FENCE = /^\s*(`{3,}|~{3,})\s*([\w+#.-]*)\s*$/;
-const HEADING = /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/;
-const RULE = /^\s{0,3}([-*_])\s*(?:\1\s*){2,}$/;
-const QUOTE = /^\s{0,3}>\s?(.*)$/;
-const BULLET = /^(\s*)[-*+]\s+(.*)$/;
-const ORDERED = /^(\s*)(\d+)[.)]\s+(.*)$/;
-const TASK = /^\[([ xX])\]\s+(.*)$/;
-const TABLE_ROW = /^\s*\|(.*)\|\s*$/;
-const TABLE_DIVIDER = /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/;
+export const FENCE = /^\s*(`{3,}|~{3,})\s*([\w+#.-]*)\s*$/;
+export const HEADING = /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/;
+export const RULE = /^\s{0,3}([-*_])\s*(?:\1\s*){2,}$/;
+export const QUOTE = /^\s{0,3}>\s?(.*)$/;
+export const BULLET = /^(\s*)[-*+]\s+(.*)$/;
+export const ORDERED = /^(\s*)(\d+)[.)]\s+(.*)$/;
+export const TASK = /^\[([ xX])\]\s+(.*)$/;
+export const TABLE_ROW = /^\s*\|(.*)\|\s*$/;
+export const TABLE_DIVIDER = /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/;
 
 export default function Markdown({ content, sources = [], onCiteClick }) {
   const lines = String(content ?? "").split(/\r?\n/);
@@ -257,7 +257,7 @@ function parseTable(lines, start, end, key, ctx) {
 // Ordering matters: code spans are taken first so their contents are never
 // re-parsed as emphasis, and links before [n] so "[text](url)" is not read as
 // a citation followed by stray parentheses.
-const INLINE = /(`[^`]+`|\*\*[^*]+\*\*|__[^_]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~]+~~|\[[^\]]*\]\([^)\s]+\)|\[\d+\])/g;
+export const INLINE = /(`[^`]+`|\*\*[^*]+\*\*|__[^_]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~]+~~|\[[^\]]*\]\([^)\s]+\)|\[\d+\])/g;
 
 function inline(text, ctx) {
   const parts = String(text).split(INLINE);

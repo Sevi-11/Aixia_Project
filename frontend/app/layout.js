@@ -62,9 +62,11 @@ const BOOTSTRAP = `
 (function () {
   var root = document.documentElement;
   var theme = 'light';
+  var voice = 'off';
   var collapsed = window.innerWidth < 744;
   try {
     if (localStorage.getItem('aixia-theme-v2') === 'dark') theme = 'dark';
+    if (localStorage.getItem('aixia-voice') === 'on') voice = 'on';
     if (!collapsed) {
       var rail = localStorage.getItem('aixia-sidebar-open');
       collapsed = rail === null ? false : rail !== 'true';
@@ -74,6 +76,12 @@ const BOOTSTRAP = `
     // width-derived default above still stands.
   }
   root.setAttribute('data-theme', theme);
+  root.setAttribute('data-voice', voice);
+  // Firefox keeps SpeechRecognition behind a flag. Resolving this here rather
+  // than in React keeps the mic button out of the server's HTML/client render
+  // disagreement, and CSS hides it when there is no recogniser to drive.
+  var stt = typeof (window.SpeechRecognition || window.webkitSpeechRecognition) === 'function';
+  root.setAttribute('data-stt', stt ? 'yes' : 'no');
   root.setAttribute('data-rail', collapsed ? 'collapsed' : 'expanded');
   var tint = ${JSON.stringify(THEME_TINT)};
   var meta = document.querySelector('meta[name="theme-color"]');
@@ -86,6 +94,8 @@ export default function RootLayout({ children }) {
     <html
       lang="en"
       data-theme="light"
+      data-voice="off"
+      data-stt="no"
       className={`${abrilFatface.variable} ${comfortaa.variable} ${inter.variable} ${ibmPlexMono.variable} antialiased`}
       suppressHydrationWarning
     >

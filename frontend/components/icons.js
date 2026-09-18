@@ -28,6 +28,24 @@ export const SunIcon = (props) => (
     <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
   </Icon>
 );
+export const SpeakerOnIcon = (props) => (
+  <Icon {...props}>
+    <path d="M11 5L6 9H2v6h4l5 4V5z" />
+    <path d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13" />
+  </Icon>
+);
+export const SpeakerOffIcon = (props) => (
+  <Icon {...props}>
+    <path d="M11 5L6 9H2v6h4l5 4V5z" />
+    <path d="M22 9l-6 6M16 9l6 6" />
+  </Icon>
+);
+export const MicIcon = (props) => (
+  <Icon {...props}>
+    <rect x="9" y="2" width="6" height="11" rx="3" />
+    <path d="M5 10a7 7 0 0014 0M12 17v4" />
+  </Icon>
+);
 export const PencilIcon = (props) => <Icon size={13} {...props}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></Icon>;
 export const TrashIcon = (props) => <Icon size={13} {...props}><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" /></Icon>;
 export const CopyIcon = (props) => <Icon size={14} {...props}><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></Icon>;

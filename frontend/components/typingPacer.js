@@ -52,8 +52,16 @@ export function createTypingPacer({ onReveal, onSettled, now = () => performance
     if (settled) return;
     settled = true;
     stopTimer();
-    onSettled?.();
-    resolveSettled();
+    // The waiter is resolved even if the callback throws. Without the finally,
+    // an error in onSettled leaves whenSettled() pending forever, so the
+    // caller's own finally never runs -- which in ChatWindow means the
+    // composer stays disabled and the conversation is stuck for good. A
+    // reveal-side callback is a nicety; the stream completing is not.
+    try {
+      onSettled?.();
+    } finally {
+      resolveSettled();
+    }
   }
 
   function tick() {

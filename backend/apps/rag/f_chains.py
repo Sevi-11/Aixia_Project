@@ -238,6 +238,20 @@ GENERAL_MAX_TOKENS = int(os.getenv("GENERAL_MAX_TOKENS", "1200"))
 # near-deterministic general chat reads as stilted.
 GENERAL_TEMPERATURE = float(os.getenv("GENERAL_TEMPERATURE", "0.7"))
 
+# Gemini 3.x Flash is a REASONING model, and its thinking tokens are billed as
+# output against max_output_tokens -- exactly the trap REASONING_EFFORT above
+# works around for qwen on Groq, in a different provider's clothing.
+#
+# Left on, a plain "three weekend project ideas" question spent 942 of 1250
+# output tokens thinking, leaving ~300 for the answer, which then stopped
+# mid-sentence with finish_reason=MAX_TOKENS. The reader sees a reply that just
+# stops; nothing errors, and nothing in the logs says why.
+#
+# 0 disables thinking. The same question then finishes in ~780 output tokens
+# with finish_reason=STOP. Raise it only together with GENERAL_MAX_TOKENS, and
+# be aware the budget is spent before a single visible word is produced.
+GENERAL_THINKING_BUDGET = int(os.getenv("GENERAL_THINKING_BUDGET", "0"))
+
 
 def get_general_llm(max_tokens: int = None, temperature: float = None):
     """The general-mode model. Never used for grounded answers."""
@@ -248,6 +262,7 @@ def get_general_llm(max_tokens: int = None, temperature: float = None):
         # as get_llm().
         temperature=GENERAL_TEMPERATURE if temperature is None else temperature,
         max_output_tokens=max_tokens or GENERAL_MAX_TOKENS,
+        thinking_budget=GENERAL_THINKING_BUDGET,
     )
 
 

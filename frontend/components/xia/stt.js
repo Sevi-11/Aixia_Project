@@ -18,7 +18,8 @@
  * IMPORTANT: the presence of the constructor does not mean recognition works.
  * Chromium derivatives -- Brave, Opera, Arc, Electron shells -- expose
  * SpeechRecognition but ship without Google's speech API key, so every attempt
- * fails with `network` and no amount of retrying will help. That is why
+ * fails with `network` and no amount of retrying will help. Confirmed against
+ * real browsers: Chrome and Safari work, Brave does not. That is why
  * `network` is treated as FATAL below: it means this browser cannot do this at
  * all, not that one request happened to fail.
  *
@@ -41,7 +42,7 @@ const MESSAGES = {
   // speech key fails this way on every attempt, and the reader is plainly
   // online -- they loaded the page. Telling them to check their connection
   // sends them off to debug something that is not broken.
-  network: "Speech recognition isn't available in this browser. Chrome supports it — you can keep typing here.",
+  network: "Speech recognition isn't available in this browser. Chrome and Safari support it — you can keep typing here.",
 };
 
 // Errors meaning "this browser will never do this", as opposed to "that

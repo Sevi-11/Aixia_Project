@@ -82,13 +82,36 @@ services:
       # RENDER_EXTERNAL_HOSTNAME, which Render injects. Add it by hand only if
       # you attach a custom domain.
       #
-      # These two need the Vercel URL, which does not exist until the frontend
-      # is deployed -- so they are set on a second pass. CSRF_TRUSTED_ORIGINS
-      # requires the scheme (https://...), ALLOWED_HOSTS must not have one.
+      # Both of these are the frontend's public URL, so they are committed as
+      # literal `value:` entries rather than left to the dashboard.
+      #
+      # `sync:` takes a BOOLEAN and nothing else -- it means "this one is not
+      # managed here, prompt for it instead". A URL after `sync:` is not a way
+      # to supply the value; it is invalid, and the variable ends up unset.
+      # `value:` is what carries a literal. The difference also decides whether
+      # the setting ever reaches an existing service: `value:` entries are
+      # re-applied whenever the blueprint syncs, while `sync: false` entries
+      # are prompted for once at creation and never touched again.
+      #
+      # These are public URLs, not secrets, so committing them costs nothing
+      # and makes the deployment reproducible.
+      #
+      # CSRF_TRUSTED_ORIGINS is what makes the proxied Django admin work at
+      # all. The frontend proxies /admin and /api to this service, so a login
+      # POST arrives carrying the FRONTEND's Origin; Django validates that
+      # against this list and 403s the login without it -- which reads as "the
+      # upload is still broken" rather than as a missing setting.
+      #
+      # Note the scheme is required here (https://...), while ALLOWED_HOSTS
+      # must not have one.
       - key: CSRF_TRUSTED_ORIGINS
-        sync: false
+        value: https://aixia-project.vercel.app
+      # Not strictly required while every browser request is same-origin via
+      # the frontend's proxy, but correct for anything calling the API
+      # directly. Setting it REPLACES the localhost defaults in settings.py,
+      # which is what you want in production.
       - key: CORS_ALLOWED_ORIGINS
-        sync: false
+        value: https://aixia-project.vercel.app
 
       # Supabase Storage, which speaks the S3 protocol. Without these, uploads
       # land on the container filesystem and are destroyed on the next deploy.

@@ -35,7 +35,7 @@ SUGGESTION_MAX_TOKENS = int(os.getenv("GROQ_SUGGESTION_MAX_TOKENS", "200"))
 # shares the minute with the answer and the follow-up suggestions.
 TITLE_MAX_TOKENS = int(os.getenv("GROQ_TITLE_MAX_TOKENS", "24"))
 
-# qwen3.6 is a reasoning model, and its <think> block is billed as output
+# qwen3.8 is a reasoning model, and its <think> block is billed as output
 # against that same cap even though _strip_thinking discards it before the user
 # sees a word of it. Turning reasoning off is what makes the free tier workable:
 # the budget was going on hidden text. Set to "default" to re-enable, or to an
@@ -68,7 +68,7 @@ def get_llm(max_tokens: int = None, temperature: float = None):
     if REASONING_EFFORT:
         kwargs["reasoning_effort"] = REASONING_EFFORT
     return ChatGroq(
-        model=os.getenv("GROQ_MODEL", "qwen/qwen3.6-27b"),
+        model=os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b"),
         groq_api_key=os.getenv("GROQ_API_KEY"),
         # `is None`, not `or`: an explicit 0 is a legitimate request for full
         # determinism and must not be quietly replaced by the default.

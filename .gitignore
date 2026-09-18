@@ -23,3 +23,9 @@ __pycache__/
 
 # Deployment values collected by scripts/deploy-wizard.sh. Contains secrets.
 deploy.env
+
+# Both values this held -- the Supabase S3 keys and the Postgres connection
+# string -- were committed in b6777a8 and public on GitHub until they were
+# rotated. Ignored so it cannot come back. The secrets in it are dead; the
+# file is kept out of the repo regardless.
+Credentials.txt

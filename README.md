@@ -190,6 +190,19 @@ step here once support is broad enough to rely on.
   an `AudioBuffer` (Kokoro-82M in-browser, say) would make lip-sync possible —
   everything speaks to the `createSpeaker()` interface in
   `frontend/components/xia/tts.js`, so that swap is one file.
+### Voice Mode
+
+A **Chat / Voice** switch in the header swaps the whole conversation surface for
+a call: Xia large and centred, a single microphone button, and a live caption
+line. It is one route (`app/page.js`) with an `interactionMode` state, not a
+second page — both surfaces drive the same turn through `streamChat()`, so
+there is no duplicated fetch and no second copy of the settle/speak invariant.
+
+The caption is a *status line*, not a transcript. It shows what Xia is hearing
+while you speak, then what she is doing — listening, thinking, speaking — and
+surfaces a microphone error in place of either. Conversation history lives in
+Chat; switching back is what brings it into view.
+
 - **Markdown is stripped before speaking**, sharing the renderer's own grammar
   (`frontend/components/xia/speakable.js`). Citation markers are removed rather
   than read: hearing "one" after every other sentence is the single most
@@ -374,7 +387,8 @@ A few choices worth calling out (fuller reasoning to live in `docs/adr/` as the 
 - [x] Two-way browser voice (Web Speech API in, `speechSynthesis` out)
 - [x] Xia: an animated four-state presence driven by the existing stream events
 - [x] Two modes: grounded RAG with citations, and rate-limited general chat
-- [ ] A dedicated hands-free `/voice` view (`streamChat()` was extracted to unblock it)
+- [x] A hands-free Voice Mode surface — Xia centred, mic-only, live captions
+- [ ] A shareable deep link into Voice Mode (it is a view toggle today, not a route)
 - [ ] Optional: air quality sensor data (AeroBand project) as a second retrieval domain
 
 ## License

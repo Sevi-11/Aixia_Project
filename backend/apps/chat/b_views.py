@@ -10,10 +10,18 @@ from django.http import StreamingHttpResponse
 
 from .models import ChatSession, ChatMessage
 from .a_serializers import ChatRequestSerializer, ChatMessageSerializer
+from .d_throttles import GeneralChatRateThrottle
 
 from rag.c_embeddings import get_embeddings
 from rag.d_vectorstore import load_vectorstore
-from rag.f_chains import answer_question, answer_question_stream, generate_followup_suggestions, generate_title
+from rag.f_chains import (
+    answer_question,
+    answer_question_stream,
+    answer_general_stream,
+    generate_followup_suggestions,
+    generate_title,
+    get_general_llm,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +114,9 @@ class ChatView(APIView):
 
 
 class ChatStreamView(APIView):
-    throttle_classes = [AnonRateThrottle]
+    # Both apply. GeneralChatRateThrottle excuses itself for grounded requests,
+    # so grounded chat sees only the looser anon rate.
+    throttle_classes = [AnonRateThrottle, GeneralChatRateThrottle]
 
     def post(self, request):
         serializer = ChatRequestSerializer(data=request.data)
@@ -116,6 +126,7 @@ class ChatStreamView(APIView):
         session_token = serializer.validated_data.get('session_token')
         question = serializer.validated_data.get('question', '')
         regenerate = serializer.validated_data.get('regenerate', False)
+        mode = serializer.validated_data.get('mode', 'grounded')
 
         session, error_response = _resolve_session(session_id, session_token)
         if error_response:
@@ -147,9 +158,16 @@ class ChatStreamView(APIView):
         # because the generator below runs after the response has been returned.
         is_first_turn = not prior_messages
 
-        embedder = get_embeddings()
-        vectorstore = load_vectorstore(embedder)
-        retrieved_docs, token_stream = answer_question_stream(vectorstore, question, history=prior_messages)
+        if mode == 'general':
+            # No retrieval, and so no documents. The empty sources event below
+            # is deliberate: one event contract serves both modes, so the
+            # client needs no branch of its own.
+            retrieved_docs = []
+            token_stream = answer_general_stream(question, history=prior_messages)
+        else:
+            embedder = get_embeddings()
+            vectorstore = load_vectorstore(embedder)
+            retrieved_docs, token_stream = answer_question_stream(vectorstore, question, history=prior_messages)
 
         def event_stream():
             yield json.dumps({"type": "sources", "sources": _serialize_sources(retrieved_docs)}) + "\n"
@@ -166,8 +184,12 @@ class ChatStreamView(APIView):
                 if full_answer:
                     ChatMessage.objects.create(session=session, role='assistant', content=full_answer)
 
+            # Follow-ups are skipped in general mode: suggestions_prompt asks
+            # for questions about Vince's background, which is precisely what
+            # this mode does not answer. Offering them here would invite the
+            # reader into the one thing the prompt has just declined to do.
             suggestions = []
-            if full_answer:
+            if full_answer and mode != 'general':
                 try:
                     suggestions = generate_followup_suggestions(question, full_answer, prior_messages)
                 except Exception:
@@ -180,7 +202,12 @@ class ChatStreamView(APIView):
             # it lands, so a slow or failed title costs nothing -- the answer
             # has finished streaming long before this runs.
             if is_first_turn and full_answer:
-                title = generate_title(question)
+                # Titled by whichever provider owns this mode, so a general
+                # conversation never spends the grounded per-minute budget.
+                title = generate_title(
+                    question,
+                    llm=get_general_llm(max_tokens=24) if mode == 'general' else None,
+                )
                 if title:
                     yield json.dumps({"type": "title", "title": title}) + "\n"
 

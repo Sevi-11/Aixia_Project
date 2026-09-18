@@ -3,8 +3,9 @@ import re
 import json
 import logging
 from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.output_parsers import StrOutputParser
-from .e_prompts import context_prompt, suggestions_prompt, title_prompt
+from .e_prompts import context_prompt, general_prompt, suggestions_prompt, title_prompt
 from .g_stream_filter import strip_thinking_stream
 
 logger = logging.getLogger(__name__)
@@ -201,3 +202,65 @@ def generate_title(question: str, llm=None, max_words: int = 6) -> str:
     if len(words) > max_words:
         title = " ".join(words[:max_words])
     return title[:60]
+
+
+# ---------------------------------------------------------------------------
+# General mode
+#
+# Served by Gemini rather than Groq, and the split is the point.
+#
+# Groq's free tier caps OUTPUT tokens per minute at 1000 for the whole
+# organisation, and rejects a request up front when max_tokens exceeds what is
+# left of that ceiling (see ANSWER_MAX_TOKENS above). Grounded answers are
+# short, cited and the thing this app exists to demonstrate, so they keep that
+# budget to themselves. General chat is open-ended and would drain it in a
+# couple of turns, taking the grounded demo down with it in the hour a reader
+# is actually looking.
+#
+# Gemini's free tier trades that per-minute cliff for a per-day one -- far more
+# token headroom, but a hard request ceiling -- so general mode is additionally
+# rate limited per visitor in apps/chat/d_throttles.py. langchain-google-genai
+# is already a dependency: it serves the embeddings, so this costs no new
+# package and no new credential (GOOGLE_API_KEY).
+# ---------------------------------------------------------------------------
+
+# gemini-2.5-flash is closed to new API keys as of this writing -- it answers
+# with a 404 pointing at this one. Flash rather than Pro because the free tier
+# is Flash-only.
+GENERAL_MODEL = os.getenv("GENERAL_MODEL", "gemini-3.6-flash")
+
+# Larger than the grounded ceiling because the constraint that set that number
+# does not apply here -- but still bounded: an unbounded answer is a slow answer
+# and burns a daily request for a reply nobody reads to the end.
+GENERAL_MAX_TOKENS = int(os.getenv("GENERAL_MAX_TOKENS", "1200"))
+
+# Above the grounded 0.2: there is no retrieved context to stay faithful to, and
+# near-deterministic general chat reads as stilted.
+GENERAL_TEMPERATURE = float(os.getenv("GENERAL_TEMPERATURE", "0.7"))
+
+
+def get_general_llm(max_tokens: int = None, temperature: float = None):
+    """The general-mode model. Never used for grounded answers."""
+    return ChatGoogleGenerativeAI(
+        model=GENERAL_MODEL,
+        google_api_key=os.getenv("GOOGLE_API_KEY"),
+        # `is None` rather than `or`, so an explicit 0 survives -- same reason
+        # as get_llm().
+        temperature=GENERAL_TEMPERATURE if temperature is None else temperature,
+        max_output_tokens=max_tokens or GENERAL_MAX_TOKENS,
+    )
+
+
+def answer_general_stream(question: str, history: list, llm=None):
+    """Ungrounded chat.
+
+    Mirrors answer_question_stream's shape -- a lazy generator of visible text --
+    but retrieves nothing, so there are no documents to return. The caller still
+    emits a sources event, empty, to keep one event contract for both modes.
+    """
+    llm = llm or get_general_llm()
+    chain = general_prompt | llm | StrOutputParser()
+    chain_input = {"question": question, "history": format_history(history or [])}
+    # Gemini does not emit <think> blocks, but the filter is cheap and this
+    # stays correct if GENERAL_MODEL is pointed at a reasoning model later.
+    return strip_thinking_stream(chain.stream(chain_input))

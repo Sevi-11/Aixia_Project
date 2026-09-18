@@ -11,3 +11,11 @@ class ChatRequestSerializer(serializers.Serializer):
     session_token = serializers.CharField(required=False, allow_blank=False)
     question = serializers.CharField(required=False, allow_blank=True, default="")
     regenerate = serializers.BooleanField(required=False, default=False)
+    # Which of the two chat modes this question is for. Defaults to grounded:
+    # an omitted mode must never silently become the ungrounded one, or an old
+    # client would start getting unsourced answers about Vince.
+    mode = serializers.ChoiceField(
+        choices=['grounded', 'general'],
+        required=False,
+        default='grounded',
+    )

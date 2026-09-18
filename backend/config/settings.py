@@ -194,6 +194,11 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
     'DEFAULT_THROTTLE_RATES': {
         'anon': '30/min',
+        # General mode runs on Gemini's free tier, which caps REQUESTS PER DAY
+        # rather than tokens per minute. A per-visitor hourly limit is what
+        # keeps one reader from spending the day's allowance; see
+        # apps/chat/d_throttles.py.
+        'general_chat': '10/hour',
     },
 }
 

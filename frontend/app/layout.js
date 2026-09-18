@@ -48,32 +48,26 @@ export const viewport = {
   interactiveWidget: "resizes-content",
 };
 
-// Runs before first paint. Both of these are decisions the server cannot make
-// -- one depends on storage, the other on viewport width -- so resolving them
-// in React would mean painting a guess and correcting it after hydration. The
-// visible cost of that is a palette flash, or a full-screen drawer that flaps
-// open and shut on every phone load. CSS keys off these attributes for the
-// pre-hydration frame; ChatWindow adopts them on mount and then owns the state.
+// Runs before first paint. The theme is a decision the server cannot make --
+// it depends on storage -- so resolving it in React would mean painting a
+// guess and correcting it after hydration, which is a palette flash. CSS keys
+// off these attributes for the pre-hydration frame; ChatWindow adopts them on
+// mount and then owns the state.
 //
-// iPad mini portrait is 744px. At or above it the sidebar has room to sit in
-// the layout and starts open; below it the sidebar is an overlay, and an
-// overlay must never be covering the page on arrival.
+// The sidebar is an overlay drawer at every width now (no in-layout rail), so
+// it always starts collapsed here -- an overlay must never be covering the
+// page on arrival, on a phone or a desktop alike.
 const BOOTSTRAP = `
 (function () {
   var root = document.documentElement;
   var theme = 'light';
   var voice = 'off';
-  var collapsed = window.innerWidth < 744;
   try {
     if (localStorage.getItem('aixia-theme-v2') === 'dark') theme = 'dark';
     if (localStorage.getItem('aixia-voice') === 'on') voice = 'on';
-    if (!collapsed) {
-      var rail = localStorage.getItem('aixia-sidebar-open');
-      collapsed = rail === null ? false : rail !== 'true';
-    }
   } catch (e) {
     // Storage can be unavailable (private mode, blocked cookies); the
-    // width-derived default above still stands.
+    // defaults above still stand.
   }
   root.setAttribute('data-theme', theme);
   root.setAttribute('data-voice', voice);
@@ -82,7 +76,7 @@ const BOOTSTRAP = `
   // disagreement, and CSS hides it when there is no recogniser to drive.
   var stt = typeof (window.SpeechRecognition || window.webkitSpeechRecognition) === 'function';
   root.setAttribute('data-stt', stt ? 'yes' : 'no');
-  root.setAttribute('data-rail', collapsed ? 'collapsed' : 'expanded');
+  root.setAttribute('data-rail', 'collapsed');
   var tint = ${JSON.stringify(THEME_TINT)};
   var meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', tint[theme]);

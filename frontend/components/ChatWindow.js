@@ -15,7 +15,6 @@ import { createListener, probeListener } from "./xia/stt";
 import { THEME_TINT } from "./themeTint";
 
 const HISTORY_KEY = "aixia-chat-history";
-const RAIL_KEY = "aixia-sidebar-open";
 // v2: the previous key was written on first paint even when the reader had
 // never touched the toggle, so it recorded the old dark default as though it
 // were a preference. Those values are indistinguishable from real choices,
@@ -266,22 +265,6 @@ export default function ChatWindow() {
     syncBrowserChrome(theme);
   }, [theme]);
 
-  // Only a deliberate toggle is written down. The adoption pass above is not a
-  // choice, and persisting it is what taught the old build to record whatever
-  // the default happened to be as though the reader had asked for it.
-  const railSettled = useRef(false);
-  useEffect(() => {
-    if (railCollapsed === null) return;
-    if (!railSettled.current) {
-      railSettled.current = true;
-      return;
-    }
-    try {
-      localStorage.setItem(RAIL_KEY, String(!railCollapsed));
-    } catch {
-      // Storage can be disabled; the rail still toggles for this session.
-    }
-  }, [railCollapsed]);
 
   const voiceSettled = useRef(false);
   useEffect(() => {
@@ -430,13 +413,12 @@ export default function ChatWindow() {
     }));
   }
 
-  // Below 60rem the sidebar is a drawer over the conversation, so anything that
-  // changes which conversation you are looking at has to get out of the way —
-  // otherwise you pick a chat and keep staring at the list that covers it.
+  // The sidebar is a drawer over the conversation at every width now, so
+  // anything that changes which conversation you're looking at has to get out
+  // of the way — otherwise you pick a chat and keep staring at the list that
+  // covers it.
   function dismissDrawer() {
-    if (typeof window !== "undefined" && window.matchMedia("(max-width: 46.4375rem)").matches) {
-      setRailCollapsed(true);
-    }
+    setRailCollapsed(true);
   }
 
   function startNewChat() {

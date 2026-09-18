@@ -31,25 +31,14 @@ export default function Sidebar({
 
   return (
     <aside className="sidebar glass" aria-label="Conversations">
-      {/* Both controls stay mounted in both states. Swapping the brand between
-          a button and a div — and mounting/unmounting the chevron — destroyed
-          the very nodes the CSS was trying to transition, so the head popped no
-          matter how the rail animated. Now only attributes and classes change,
-          and the styles tween them.
-
-          Collapsed, the logo IS the expand control; a rail this narrow has no
-          room for a second button. Expanded, it is inert (disabled, so it also
-          leaves the tab order) and the chevron beside it does the collapsing. */}
+      {/* The drawer is only ever visible expanded — collapsed, it is off-screen
+          entirely (see .sidebar in globals.css) — so there is no "collapsed
+          logo doubles as the expand button" state to design for any more.
+          Opening it is the header lotus's job now (mirrors mobile, extended
+          to every width); this brand is a plain label, and only the chevron
+          beside it closes the drawer. */}
       <div className="sidebar-head">
-        <button
-          type="button"
-          className={`brand${collapsed ? " is-expander" : ""}`}
-          onClick={onToggleCollapse}
-          disabled={!collapsed}
-          aria-expanded={!collapsed}
-          aria-label="Expand sidebar"
-          title={collapsed ? "Expand sidebar" : undefined}
-        >
+        <div className="brand">
           <span className="brand-mark" aria-hidden="true">
             <span className="icon-swap theme-icon">
               <LotusIcon />
@@ -57,7 +46,7 @@ export default function Sidebar({
             </span>
           </span>
           <span className="brand-word hide-on-collapse">AIxia</span>
-        </button>
+        </div>
         <button
           type="button"
           className="rail-toggle"

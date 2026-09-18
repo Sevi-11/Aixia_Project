@@ -19,9 +19,9 @@ export default function AppHeader({ title, status, xiaState, mode, onSetMode, on
   return (
     <header className="app-header glass">
       <div className="header-left">
-        {/* Below 47.5rem there is no rail to hold the logo, so it lives here
-            and is the only way to reach conversation history. CSS hides it at
-            wider sizes, where the rail owns that job. */}
+        {/* The sidebar has no visible collapsed state at any width — it is
+            always an off-screen drawer until this is clicked — so this is the
+            only way to reach conversation history, everywhere. */}
         <button type="button" className="header-menu" onClick={onOpenSidebar} aria-label="Open sidebar" title="Open sidebar">
           <span className="brand-mark" aria-hidden="true">
             <span className="icon-swap theme-icon">

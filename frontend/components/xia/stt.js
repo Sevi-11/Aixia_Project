@@ -15,6 +15,13 @@
  * engines this ships audio to a vendor service for transcription; it is not
  * on-device everywhere.
  *
+ * IMPORTANT: the presence of the constructor does not mean recognition works.
+ * Chromium derivatives -- Brave, Opera, Arc, Electron shells -- expose
+ * SpeechRecognition but ship without Google's speech API key, so every attempt
+ * fails with `network` and no amount of retrying will help. That is why
+ * `network` is treated as FATAL below: it means this browser cannot do this at
+ * all, not that one request happened to fail.
+ *
  * Requires a secure context: HTTPS, or localhost in development.
  */
 
@@ -30,8 +37,36 @@ const MESSAGES = {
   "service-not-allowed": "Microphone access was blocked. Allow it in your browser's site settings.",
   "no-speech": "I didn't catch anything — try again.",
   "audio-capture": "No microphone found.",
-  network: "Speech recognition needs a network connection.",
+  // Not a connectivity problem in practice. A Chromium build without Google's
+  // speech key fails this way on every attempt, and the reader is plainly
+  // online -- they loaded the page. Telling them to check their connection
+  // sends them off to debug something that is not broken.
+  network: "Speech recognition isn't available in this browser. Chrome supports it — you can keep typing here.",
 };
+
+// Errors meaning "this browser will never do this", as opposed to "that
+// attempt failed". The caller stops offering the microphone when one appears.
+const FATAL = new Set(["network", "service-not-allowed"]);
+
+/**
+ * The standards-track availability check, where it exists. Strictly better than
+ * testing for the constructor, which is true in browsers that cannot actually
+ * recognise anything.
+ * @returns {Promise<boolean>} false only when the browser says so explicitly.
+ */
+export async function probeListener() {
+  if (!isListenerAvailable()) return false;
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (typeof Recognition.available !== "function") return true; // unknown; assume yes
+  try {
+    const state = await Recognition.available({ langs: [document.documentElement.lang || "en-US"] });
+    // "downloadable" and "downloading" are still usable; only an explicit
+    // "unavailable" rules it out.
+    return state !== "unavailable";
+  } catch {
+    return true;
+  }
+}
 
 /**
  * @param {{
@@ -39,7 +74,7 @@ const MESSAGES = {
  *   onFinal?: (text: string) => void,
  *   onStart?: () => void,
  *   onEnd?: () => void,
- *   onError?: (message: string) => void,
+ *   onError?: (message: string, info: {code: string, fatal: boolean}) => void,
  * }} handlers
  */
 export function createListener({ onInterim, onFinal, onStart, onEnd, onError } = {}) {
@@ -73,7 +108,10 @@ export function createListener({ onInterim, onFinal, onStart, onEnd, onError } =
     instance.onerror = (event) => {
       // `aborted` is what a deliberate stop() looks like from here.
       if (event.error === "aborted") return;
-      onError?.(MESSAGES[event.error] || "Speech recognition failed.");
+      onError?.(
+        MESSAGES[event.error] || "Speech recognition failed.",
+        { code: event.error, fatal: FATAL.has(event.error) },
+      );
     };
 
     instance.onend = () => {

@@ -4,7 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import { DownloadIcon, MicIcon, PaperclipIcon, PlusIcon, SendIcon } from "./icons";
 
 const UPLOAD_URL = "/api/documents/upload/";
+// Proxied to Django by next.config.mjs so that signing in happens on THIS
+// origin. A login served from the backend's own domain sets a host-only
+// cookie the browser will never send back here, which is why uploading used
+// to stay forbidden however many times you signed in.
+const LOGIN_URL = "/admin/login/?next=/";
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // Mirrors the backend's own ceiling.
+
+// DRF's SessionAuthentication enforces CSRF on unsafe methods, so a session
+// cookie alone is not enough: without this header the upload is rejected with
+// "CSRF Failed: CSRF token missing" even when signed in as the owner.
+function csrfToken() {
+  const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
 
 export default function Composer({ value, onChange, onSend, onExport, disabled, canExport, listening, micError, onToggleListening }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -69,9 +82,18 @@ export default function Composer({ value, onChange, onSend, onExport, disabled, 
       // Both endpoints are IsAdminUser: this succeeds only for a signed-in
       // owner. Anyone else gets a 403, which is the point -- a public visitor
       // must not be able to write into the shared vector index.
-      const uploaded = await fetch(UPLOAD_URL, { method: "POST", body, credentials: "include" });
+      const uploaded = await fetch(UPLOAD_URL, {
+        method: "POST",
+        body,
+        credentials: "include",
+        headers: { "X-CSRFToken": csrfToken() },
+      });
       if (uploaded.status === 401 || uploaded.status === 403) {
-        setAttach({ state: "error", message: "Only the owner can add documents. Sign in to the Django admin first." });
+        setAttach({
+          state: "error",
+          message: "Only the owner can add documents.",
+          action: { href: LOGIN_URL, label: "Sign in" },
+        });
         return;
       }
       if (!uploaded.ok) throw new Error(await readError(uploaded));
@@ -79,7 +101,11 @@ export default function Composer({ value, onChange, onSend, onExport, disabled, 
       const document = await uploaded.json();
       setAttach({ state: "busy", message: `Indexing ${file.name}…` });
 
-      const ingested = await fetch(`/api/documents/${document.id}/ingest/`, { method: "POST", credentials: "include" });
+      const ingested = await fetch(`/api/documents/${document.id}/ingest/`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "X-CSRFToken": csrfToken() },
+      });
       if (!ingested.ok) throw new Error(await readError(ingested));
 
       const result = await ingested.json();
@@ -173,6 +199,14 @@ export default function Composer({ value, onChange, onSend, onExport, disabled, 
             role="status"
           >
             {notice?.message}
+            {notice?.action ? (
+              <>
+                {" "}
+                <a className="status-action" href={notice.action.href} target="_blank" rel="noopener noreferrer">
+                  {notice.action.label}
+                </a>
+              </>
+            ) : null}
           </p>
         </div>
       </div>

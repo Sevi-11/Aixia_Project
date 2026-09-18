@@ -1430,3 +1430,15 @@ html[data-rail="collapsed"] .rail-toggle svg { transform: rotate(180deg); }
   .mode-short { display: inline; }
   .mode-option { padding: 0.3rem 0.5rem; }
 }
+
+/* An error that the reader can act on gets a way to act on it. Used by the
+   upload's "Only the owner can add documents. Sign in" -- without the link the
+   instruction is unactionable, because the admin is not linked anywhere. */
+.status-action {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.status-action:hover { opacity: 0.8; }

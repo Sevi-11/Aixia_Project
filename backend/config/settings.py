@@ -157,6 +157,23 @@ if _LAN_IP:
 CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS')
 CSRF_TRUSTED_ORIGINS += [f'https://{hostname}' for hostname in PLATFORM_HOSTNAMES]
 
+# The frontend proxies /admin and /api to this service, so a session
+# authenticated POST -- admin login, and therefore document upload -- reaches
+# Django carrying the FRONTEND's Origin rather than this service's. Django
+# validates that Origin against the list above, so without the frontend's
+# origin in it the login returns 403 and the upload can never be authorised.
+#
+# In production that origin arrives through the CSRF_TRUSTED_ORIGINS env var,
+# because only the deployment knows the frontend's domain. These are the local
+# equivalents: 3210 is the host dev server, 3000 the containerised frontend.
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS += [
+        'http://localhost:3210',
+        'http://127.0.0.1:3210',
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+    ]
+
 # Render terminates TLS at its edge and forwards plain HTTP inside the network,
 # so this header is the only way Django can tell the original request was
 # HTTPS. Without it request.is_secure() is always False, which makes the

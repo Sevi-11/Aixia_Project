@@ -11,7 +11,7 @@ import { useXiaState } from "./xia/useXiaState";
 import { streamChat } from "./xia/chatStream";
 import { createSpeaker } from "./xia/tts";
 import { speakableText } from "./xia/speakable";
-import { createListener } from "./xia/stt";
+import { createListener, probeListener } from "./xia/stt";
 import { THEME_TINT } from "./themeTint";
 
 const HISTORY_KEY = "aixia-chat-history";
@@ -316,7 +316,15 @@ export default function ChatWindow() {
           listenerRef.current?.stop();
           sendMessageRef.current?.(text);
         },
-        onError: (message) => setMicError(message),
+        onError: (message, info) => {
+          setMicError(message);
+          // A browser that cannot reach a speech service will fail this way
+          // every time. Offering the button again would invite the reader to
+          // press it until they conclude the app is broken, so it goes away
+          // and typing carries on. The same attribute the bootstrap sets, so
+          // the CSS that already hides the mic does the work.
+          if (info?.fatal) document.documentElement.setAttribute("data-stt", "no");
+        },
         // Not a blanket cancel: by the time this fires after a final result,
         // the question is already in flight and she is thinking, not listening.
         onEnd: () => { setListening(false); sendXia("endListen"); },
@@ -340,9 +348,20 @@ export default function ChatWindow() {
     speakerRef.current?.cancel();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    probeListener().then((usable) => {
+      if (!cancelled && !usable) document.documentElement.setAttribute("data-stt", "no");
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   // A microphone complaint is about the last attempt only.
   useEffect(() => {
     if (!micError) return;
+    // Left standing when the microphone is gone for good: it is the only
+    // explanation the reader gets for a button that just disappeared.
+    if (document.documentElement.getAttribute("data-stt") === "no") return;
     const clear = setTimeout(() => setMicError(null), 6000);
     return () => clearTimeout(clear);
   }, [micError]);

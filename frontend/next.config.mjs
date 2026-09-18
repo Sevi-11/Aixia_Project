@@ -41,6 +41,28 @@ const nextConfig = {
       // everything else so it tests the path real requests actually take.
       { source: "/api/healthz", destination: `${BACKEND_URL}/healthz/` },
       { source: "/api/:path*", destination: `${BACKEND_URL}/api/:path*/` },
+
+      // The Django admin is proxied so it shares an ORIGIN with the app, and
+      // this is load-bearing rather than a convenience. Uploading a document
+      // requires a logged-in owner, and the session cookie Django sets is
+      // host-only. Logging in on the backend's own domain therefore sets a
+      // cookie the browser will never send to the frontend's domain, so the
+      // upload stays 403 no matter how many times you sign in. Proxied, the
+      // browser sees the login response as coming from this origin and the
+      // cookie lands where the upload request will actually carry it.
+      //
+      // The trailing slash is re-added for the same reason as /api above, and
+      // omitting it fails in a way that looks like something else entirely:
+      // Next strips it while matching, Django's APPEND_SLASH redirects
+      // /admin/login -> /admin/login/, and the original query string gets
+      // folded into the redirect's own ?next=, which then repeats. What you
+      // see is an ever-growing URL and a login page that never loads.
+      { source: "/admin", destination: `${BACKEND_URL}/admin/` },
+      { source: "/admin/:path*", destination: `${BACKEND_URL}/admin/:path*/` },
+
+      // Django's own static files -- the admin's CSS and JS. Without this the
+      // proxied admin renders as unstyled HTML.
+      { source: "/static/:path*", destination: `${BACKEND_URL}/static/:path*` },
     ];
   },
 };

@@ -66,9 +66,16 @@ services:
       # Declared so the choice is explicit rather than implied.
       - key: GROQ_MODEL
         sync: false
-      # Embeddings. A different provider because Groq serves no embeddings
-      # endpoint.
+      # Embeddings AND general-mode chat. A different provider because Groq
+      # serves no embeddings endpoint -- and because general mode must not
+      # share Groq's per-minute output ceiling with grounded answers.
       - key: GOOGLE_API_KEY
+        sync: false
+      # General-mode model. f_chains.py has a working fallback, so production
+      # boots without this -- declared for the same reason as GROQ_MODEL, so
+      # the choice is explicit rather than implied. Note gemini-2.5-flash is
+      # closed to new API keys and 404s; the fallback is gemini-3.6-flash.
+      - key: GENERAL_MODEL
         sync: false
 
       # ALLOWED_HOSTS is deliberately absent: settings.py already appends

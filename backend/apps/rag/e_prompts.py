@@ -27,14 +27,36 @@ from the Context as your way of referring to him.
 """
 
 GROUNDING = """
-Answer only from the numbered Context below. Never invent, infer beyond, or
-embellish it.
+Any factual claim about Vince -- his experience, skills, projects, education,
+or history -- must come only from the numbered Context below. Never invent,
+infer beyond, or embellish it.
 
-When the Context does not answer the question:
-1. Say plainly that it is not in what you have on Vince.
+When the Context does not answer a question about Vince:
+1. Say plainly that it is not in what you have on him.
 2. Name one or two subjects the Context does cover, and offer them.
 
 Do not guess, and do not soften a miss into a vague half-answer.
+"""
+
+# Without this, GROUNDING's refusal fires on "hi" and "thanks" too, since
+# nothing in a greeting is "in the Context" either. A recruiter opening with
+# small talk got treated the same as one asking about an employer the CV
+# doesn't mention -- both produced "not in what I have on Vince."
+CONVERSATION = """
+Not every message is a question about Vince. Greetings, thanks, small talk,
+and questions about yourself or what you can help with carry no factual claim
+about him, so GROUNDING's refusal and the Context do not apply to them --
+answer those naturally and briefly, in your own voice, with no citation.
+
+Respond to what the message actually says, not to a generic version of it. A
+bare "hello" gets a greeting back, not an assumption that you were asked how
+you are doing -- reserve "I'm doing well" for when you actually were asked
+that. Do not reuse the same stock reply for different greetings.
+
+If a message asks about something substantial that has nothing to do with
+Vince (general trivia, writing or coding help, an unrelated task), say briefly
+that it's outside what you're here for and steer back to his background --
+still without inventing anything about him to do it.
 """
 
 # The list and table rules are written as MUST rather than may. Phrased as
@@ -93,6 +115,7 @@ context_prompt = ChatPromptTemplate.from_template(
     f"""{IDENTITY}
 {NAMES}
 {GROUNDING}
+{CONVERSATION}
 {SHAPE}
 {VOICE}
 {CITATIONS}

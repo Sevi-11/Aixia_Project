@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Aixia voice — motion spec</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Comfortaa:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap">
+<style>
+body{margin:0;background:#0A1128;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#6E76F0}a:hover{color:#9AA0F6}
+</style>
+</helmet>
+<div style="width: 1280px; height: 880px; box-sizing: border-box; padding: 56px; background: #0A1128; color: #F4F1EA; display: flex; flex-direction: column; gap: 28px;">
+
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; height: 76px;">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <h1 style="margin: 0; font-family: 'Abril Fatface', Georgia, serif; font-size: 42px; line-height: 1; color: #F4F1EA;">Motion spec</h1>
+      <p style="margin: 0; font-family: 'Comfortaa', system-ui, sans-serif; font-size: 15px; color: #A8A4C4;">What drives each state, how they hand over, and how the speaking state binds to real audio.</p>
+    </div>
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #A8A4C4; text-align: right; line-height: 1.7; white-space: nowrap;">--ease cubic-bezier(.22,1,.36,1)<br>--medium 420ms · --fast 180ms</div>
+  </div>
+
+  <div style="display: flex; gap: 28px; height: 400px;">
+
+    <div style="width: 660px; box-sizing: border-box; padding: 24px 26px; background: #101A3D; border: 1px solid rgba(255,255,255,0.13); border-radius: 22px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-family: 'Comfortaa', system-ui, sans-serif; font-size: 15px; font-weight: 700; color: #F4F1EA;">State machine</div>
+      <svg viewBox="0 0 640 400" width="608" height="380" role="img" aria-label="State machine: idle to listening to thinking to speaking and back to idle, with muted branching off listening and trouble branching off thinking.">
+        <rect x="16" y="190" width="104" height="46" rx="13" fill="#182552" stroke="rgba(255,255,255,0.16)" stroke-width="1"/>
+        <text x="68" y="219" text-anchor="middle" font-family="Comfortaa, system-ui, sans-serif" font-size="14" font-weight="700" fill="#F4F1EA">Idle</text>
+        <rect x="174" y="190" width="104" height="46" rx="13" fill="#182552" stroke="rgba(110,118,240,0.5)" stroke-width="1.4"/>
+        <text x="226" y="219" text-anchor="middle" font-family="Comfortaa, system-ui, sans-serif" font-size="14" font-weight="700" fill="#F4F1EA">Listening</text>
+        <rect x="332" y="190" width="104" height="46" rx="13" fill="#182552" stroke="rgba(255,255,255,0.16)" stroke-width="1"/>
+        <text x="384" y="219" text-anchor="middle" font-family="Comfortaa, system-ui, sans-serif" font-size="14" font-weight="700" fill="#F4F1EA">Thinking</text>
+        <rect x="490" y="190" width="104" height="46" rx="13" fill="#182552" stroke="rgba(246,195,77,0.5)" stroke-width="1.4"/>
+        <text x="542" y="219" text-anchor="middle" font-family="Comfortaa, system-ui, sans-serif" font-size="14" font-weight="700" fill="#F4F1EA">Speaking</text>
+        <rect x="174" y="80" width="104" height="46" rx="13" fill="#141F45" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+        <text x="226" y="109" text-anchor="middle" font-family="Comfortaa, system-ui, sans-serif" font-size="14" font-weight="700" fill="#8C94AE">Muted</text>
+        <rect x="332" y="300" width="104" height="46" rx="13" fill="#141F45" stroke="rgba(181,84,74,0.5)" stroke-width="1.2"/>
+        <text x="384" y="329" text-anchor="middle" font-family="Comfortaa, system-ui, sans-serif" font-size="14" font-weight="700" fill="#D98077">Trouble</text>
+
+        <path d="M 120,213 L 166,213" stroke="#6E76F0" stroke-width="1.6" fill="none"/>
+        <path d="M 174,213 L 165,208 L 165,218 Z" fill="#6E76F0"/>
+        <text x="147" y="203" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#A8A4C4">mic on</text>
+
+        <path d="M 278,213 L 324,213" stroke="#6E76F0" stroke-width="1.6" fill="none"/>
+        <path d="M 332,213 L 323,208 L 323,218 Z" fill="#6E76F0"/>
+        <text x="305" y="203" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#A8A4C4">turn end</text>
+
+        <path d="M 436,213 L 482,213" stroke="#6E76F0" stroke-width="1.6" fill="none"/>
+        <path d="M 490,213 L 481,208 L 481,218 Z" fill="#6E76F0"/>
+        <text x="463" y="203" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#A8A4C4">1st token</text>
+
+        <path d="M 560,190 C 560,152 80,152 68,182" stroke="#6E76F0" stroke-width="1.6" fill="none"/>
+        <path d="M 68,190 L 63,181 L 73,181 Z" fill="#6E76F0"/>
+        <text x="314" y="150" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#A8A4C4">playback done</text>
+
+        <path d="M 215,190 L 215,135" stroke="#8C94AE" stroke-width="1.5" fill="none"/>
+        <path d="M 215,126 L 210,135 L 220,135 Z" fill="#8C94AE"/>
+        <text x="206" y="165" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="9" fill="#8C94AE">mute</text>
+        <path d="M 240,126 L 240,181" stroke="#8C94AE" stroke-width="1.5" fill="none"/>
+        <path d="M 240,190 L 235,181 L 245,181 Z" fill="#8C94AE"/>
+        <text x="249" y="165" font-family="IBM Plex Mono, monospace" font-size="9" fill="#8C94AE">unmute</text>
+
+        <path d="M 384,236 L 384,291" stroke="#B5544A" stroke-width="1.5" fill="none"/>
+        <path d="M 384,300 L 379,291 L 389,291 Z" fill="#B5544A"/>
+        <text x="393" y="270" font-family="IBM Plex Mono, monospace" font-size="9" fill="#D98077">failure</text>
+
+        <path d="M 332,330 C 220,352 92,330 68,248" stroke="#B5544A" stroke-width="1.5" fill="none"/>
+        <path d="M 68,236 L 63,246 L 73,245 Z" fill="#B5544A"/>
+        <text x="196" y="360" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#D98077">retry or dismiss</text>
+
+        <text x="16" y="392" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#A8A4C4">Barge-in: if the mic reopens mid-playback, Speaking yields to Listening in one 420ms transition — never both at once.</text>
+      </svg>
+    </div>
+
+    <div style="flex-grow: 1; box-sizing: border-box; padding: 24px 26px; background: #101A3D; border: 1px solid rgba(255,255,255,0.13); border-radius: 22px; display: flex; flex-direction: column; gap: 14px;">
+      <div style="font-family: 'Comfortaa', system-ui, sans-serif; font-size: 15px; font-weight: 700; color: #F4F1EA;">Timing</div>
+      <div style="display: grid; grid-template-columns: 86px 1fr 74px; gap: 0; font-size: 12px;">
+        <div style="padding: 0 0 9px; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: .07em; color: #6E76F0; border-bottom: 1px solid rgba(255,255,255,0.13);">STATE</div>
+        <div style="padding: 0 0 9px; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: .07em; color: #6E76F0; border-bottom: 1px solid rgba(255,255,255,0.13);">WHAT MOVES</div>
+        <div style="padding: 0 0 9px; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: .07em; color: #6E76F0; border-bottom: 1px solid rgba(255,255,255,0.13); text-align: right;">CYCLE</div>
+
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-family: 'Comfortaa', system-ui, sans-serif; font-weight: 500; color: #F4F1EA;">Idle</div>
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); color: #D6D3E2; line-height: 1.45;">Bloom scale 1 → 1.04, seed opacity .70 → 1</div>
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-family: 'IBM Plex Mono', monospace; color: #A8A4C4; text-align: right;">4200</div>
+
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-family: 'Comfortaa', system-ui, sans-serif; font-weight: 500; color: #F4F1EA;">Listening</div>
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); color: #D6D3E2; line-height: 1.45;">Splay 5° → 10°, tier-staggered 140ms; ripples scale .28 → 1.4, 800ms apart</div>
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-family: 'IBM Plex Mono', monospace; color: #A8A4C4; text-align: right;">2800<br>2400</div>
+
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-family: 'Comfortaa', system-ui, sans-serif; font-weight: 500; color: #F4F1EA;">Thinking</div>
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); color: #D6D3E2; line-height: 1.45;">Opacity sweep .34 → 1 per petal, 280ms apart; bloom sway ±2.6°</div>
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-family: 'IBM Plex Mono', monospace; color: #A8A4C4; text-align: right;">1700<br>3400</div>
+
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-family: 'Comfortaa', system-ui, sans-serif; font-weight: 500; color: #F4F1EA;">Speaking</div>
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); color: #D6D3E2; line-height: 1.45;">Amplitude drives splay 0 → 14° and scale 1 → 1.16; seed .90 → 1.24</div>
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-family: 'IBM Plex Mono', monospace; color: #F6C34D; text-align: right;">rAF</div>
+
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-family: 'Comfortaa', system-ui, sans-serif; font-weight: 500; color: #F4F1EA;">Trouble</div>
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); color: #D6D3E2; line-height: 1.45;">Contract 1 → 0.90, opacity .95 → .55, water flattens</div>
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-family: 'IBM Plex Mono', monospace; color: #A8A4C4; text-align: right;">1700</div>
+
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-family: 'Comfortaa', system-ui, sans-serif; font-weight: 500; color: #F4F1EA;">Muted</div>
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); color: #D6D3E2; line-height: 1.45;">Static: fold −8° × tier, scale .86, seed hollow</div>
+        <div style="padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-family: 'IBM Plex Mono', monospace; color: #A8A4C4; text-align: right;">—</div>
+
+        <div style="padding: 11px 0; font-family: 'Comfortaa', system-ui, sans-serif; font-weight: 500; color: #6E76F0;">Any → any</div>
+        <div style="padding: 11px 0; color: #D6D3E2; line-height: 1.45;">Transform and fill cross-fade on <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;">--medium var(--ease)</span></div>
+        <div style="padding: 11px 0; font-family: 'IBM Plex Mono', monospace; color: #6E76F0; text-align: right;">420</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 28px; height: 236px;">
+
+    <div style="width: 660px; box-sizing: border-box; padding: 20px 24px; background: #101A3D; border: 1px solid rgba(255,255,255,0.13); border-radius: 22px; display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
+      <div style="font-family: 'Comfortaa', system-ui, sans-serif; font-size: 15px; font-weight: 700; color: #F4F1EA;">Binding the speaking state to real audio</div>
+      <pre style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1.62; color: #D6D3E2; white-space: pre; overflow: hidden;">// One rAF loop writes one custom property. Nothing re-renders.
+analyser.getByteTimeDomainData(buf);
+let s = 0;
+for (const v of buf) { const x = (v - 128) / 128; s += x * x; }
+const target = Math.min(1, Math.sqrt(s / buf.length) * 3.2);
+
+// Fast attack, slow release — otherwise the bloom flickers on consonants.
+amp += (target - amp) * (target &gt; amp ? 0.45 : 0.12);
+mark.style.setProperty('--amp', amp.toFixed(3));
+
+/* CSS, no JS per petal: */
+.speak .pt   { transform: rotate(calc(var(--d) * var(--m) * var(--amp) * 14deg))
+                          scale(calc(1 + var(--amp) * 0.16)); }
+.speak .seed { transform: scale(calc(0.9 + var(--amp) * 0.34)); }</pre>
+    </div>
+
+    <div style="flex-grow: 1; box-sizing: border-box; padding: 20px 24px; background: #101A3D; border: 1px solid rgba(255,255,255,0.13); border-radius: 22px; display: flex; flex-direction: column; gap: 11px;">
+      <div style="font-family: 'Comfortaa', system-ui, sans-serif; font-size: 15px; font-weight: 700; color: #F4F1EA;">Rules that keep it honest</div>
+      <div style="display: flex; gap: 10px; align-items: flex-start;"><span style="color:#6E76F0;font-size:13px;line-height:1.5;">—</span><span style="font-size: 12.5px; line-height: 1.5; color: #D6D3E2;"><strong style="color:#F4F1EA">Reduced motion.</strong> Every loop collapses to a 420ms cross-fade between two static poses, closed and open. The state still reads; nothing oscillates.</span></div>
+      <div style="display: flex; gap: 10px; align-items: flex-start;"><span style="color:#6E76F0;font-size:13px;line-height:1.5;">—</span><span style="font-size: 12.5px; line-height: 1.5; color: #D6D3E2;"><strong style="color:#F4F1EA">One state at a time.</strong> The mark has a single class. Overlapping animations are what make voice orbs read as broken.</span></div>
+      <div style="display: flex; gap: 10px; align-items: flex-start;"><span style="color:#6E76F0;font-size:13px;line-height:1.5;">—</span><span style="font-size: 12.5px; line-height: 1.5; color: #D6D3E2;"><strong style="color:#F4F1EA">Screen readers.</strong> The SVG stays <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;">aria-hidden</span>. State changes are announced from the text chip with <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;">aria-live="polite"</span>.</span></div>
+      <div style="display: flex; gap: 10px; align-items: flex-start;"><span style="color:#6E76F0;font-size:13px;line-height:1.5;">—</span><span style="font-size: 12.5px; line-height: 1.5; color: #D6D3E2;"><strong style="color:#F4F1EA">Clamp before CSS.</strong> Amplitude is capped at 1 in JS, so a hot mic can never push the bloom past its frame.</span></div>
+      <div style="display: flex; gap: 10px; align-items: flex-start;"><span style="color:#6E76F0;font-size:13px;line-height:1.5;">—</span><span style="font-size: 12.5px; line-height: 1.5; color: #D6D3E2;"><strong style="color:#F4F1EA">Cost.</strong> Five composited transforms, no layout, no paint. Safe to leave running on a mid-range phone.</span></div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":880}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

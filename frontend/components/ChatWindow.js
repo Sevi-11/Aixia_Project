@@ -669,6 +669,17 @@ export default function ChatWindow() {
     return out;
   }, [messages]);
 
+  // The lotus shows six states; the state machine drives four. Trouble and
+  // muted are overlays from signals that live outside the conversation flow, so
+  // they resolve here rather than in the transition table. A mic complaint wins
+  // (it needs the reader's attention), then a muted call (voice off in Voice
+  // mode — reachable via the header's voice toggle), then the base state.
+  const xiaDisplayState = micError
+    ? "trouble"
+    : interactionMode === "voice" && !voiceOn
+    ? "muted"
+    : xiaState;
+
   return (
     <>
       <div className="ambient" aria-hidden="true" />
@@ -702,7 +713,7 @@ export default function ChatWindow() {
           <AppHeader
             title={activeChat?.title || "New conversation"}
             status={status}
-            xiaState={xiaState}
+            xiaState={xiaDisplayState}
             mode={mode}
             onSetMode={(next) => activeChat && updateChat(activeChat.id, { mode: next })}
             interactionMode={interactionMode}
@@ -714,7 +725,7 @@ export default function ChatWindow() {
 
           {interactionMode === "voice" ? (
             <VoiceScreen
-              xiaState={xiaState}
+              xiaState={xiaDisplayState}
               listening={listening}
               micError={micError}
               disabled={loading}

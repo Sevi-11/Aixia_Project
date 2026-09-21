@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Aixia voice mark — anatomy</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Comfortaa:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap">
+<style>
+body{margin:0;background:#0A1128;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#6E76F0}a:hover{color:#9AA0F6}
+.bloom,.pt,.rip,.water{transform-box:view-box}
+.bloom{transform-origin:100px 148px}
+.pt{transform-origin:100px 148px}
+.seed{transform-box:view-box;transform-origin:100px 144px}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+@keyframes seedglow{0%,100%{opacity:.72}50%{opacity:1}}
+.idle .bloom{animation:breathe 4.2s cubic-bezier(.45,0,.55,1) infinite}
+.idle .seed{animation:seedglow 4.2s cubic-bezier(.45,0,.55,1) infinite}
+@media (prefers-reduced-motion:reduce){.idle .bloom,.idle .seed{animation:none}}
+</style>
+</helmet>
+<div style="width: 1280px; height: 880px; box-sizing: border-box; padding: 56px; background: #0A1128; color: #F4F1EA; display: flex; flex-direction: column; gap: 30px;">
+
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 32px;">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <h1 style="margin: 0; font-family: 'Abril Fatface', Georgia, serif; font-size: 46px; line-height: 1; letter-spacing: -0.01em; color: #F4F1EA;">The Aixia voice mark</h1>
+      <p style="margin: 0; font-family: 'Comfortaa', system-ui, sans-serif; font-size: 16px; color: #A8A4C4; max-width: 720px;">The logo lotus, rebuilt as a live symbol for voice. Same five petals, same seed, same water line — nothing new is invented, only set in motion.</p>
+    </div>
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #A8A4C4; text-align: right; line-height: 1.7; white-space: nowrap;">viewBox 0 0 200 200<br>anchor 100,148<br>v1 · voice</div>
+  </div>
+
+  <div style="display: flex; gap: 30px; height: 340px;">
+
+    <div class="idle" style="width: 420px; box-sizing: border-box; padding: 28px; background: #101A3D; border: 1px solid rgba(255,255,255,0.13); border-radius: 22px; box-shadow: 0 1.2rem 3.2rem rgba(0,0,0,0.34); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;">
+      <svg viewBox="0 0 200 200" width="212" height="212" aria-hidden="true">
+        <g class="bloom">
+          <path class="pt" d="M 100,148 C 65.79,160.06 33.60,137.22 25.83,118.03 C 44.75,109.63 83.77,115.56 100,148 Z" fill="#FBE0D2"/>
+          <path class="pt" d="M 100,148 C 116.23,115.56 155.25,109.63 174.17,118.03 C 166.40,137.22 134.21,160.06 100,148 Z" fill="#FBE0D2"/>
+          <path class="pt" d="M 100,148 C 54.84,138.27 38.62,92.47 45.20,66.75 C 71.51,70.28 107.90,102.48 100,148 Z" fill="#F6C6AE"/>
+          <path class="pt" d="M 100,148 C 92.10,102.48 128.49,70.28 154.80,66.75 C 161.38,92.47 145.16,138.27 100,148 Z" fill="#F6C6AE"/>
+          <path class="pt" d="M 100,148 C 62.00,109.92 76.44,56.16 100,36.00 C 123.56,56.16 138.00,109.92 100,148 Z" fill="#F2AD85"/>
+          <circle class="seed" cx="100" cy="144" r="12" fill="#F6C34D"/>
+          <path class="water" d="M 42,172 Q 100,188 158,172" fill="none" stroke="#EDEFF3" stroke-width="5" stroke-linecap="round" opacity="0.3"/>
+        </g>
+      </svg>
+      <div style="font-family: 'Comfortaa', system-ui, sans-serif; font-size: 13px; color: #A8A4C4; text-align: center;">Idle — resting breath, 4.2s</div>
+    </div>
+
+    <div style="flex-grow: 1; box-sizing: border-box; padding: 28px 30px; background: #101A3D; border: 1px solid rgba(255,255,255,0.13); border-radius: 22px; display: flex; gap: 28px; align-items: center;">
+      <svg viewBox="0 0 200 200" width="212" height="212" aria-hidden="true" style="flex-shrink: 0;">
+        <path d="M 100,148 C 65.79,160.06 33.60,137.22 25.83,118.03 C 44.75,109.63 83.77,115.56 100,148 Z" fill="#FBE0D2" opacity="0.26"/>
+        <path d="M 100,148 C 116.23,115.56 155.25,109.63 174.17,118.03 C 166.40,137.22 134.21,160.06 100,148 Z" fill="#FBE0D2" opacity="0.26"/>
+        <path d="M 100,148 C 54.84,138.27 38.62,92.47 45.20,66.75 C 71.51,70.28 107.90,102.48 100,148 Z" fill="#F6C6AE" opacity="0.26"/>
+        <path d="M 100,148 C 92.10,102.48 128.49,70.28 154.80,66.75 C 161.38,92.47 145.16,138.27 100,148 Z" fill="#F6C6AE" opacity="0.26"/>
+        <path d="M 100,148 C 62.00,109.92 76.44,56.16 100,36.00 C 123.56,56.16 138.00,109.92 100,148 Z" fill="#F2AD85" opacity="0.26"/>
+        <path d="M 100,148 C 65.79,160.06 33.60,137.22 25.83,118.03 C 44.75,109.63 83.77,115.56 100,148 Z" fill="none" stroke="#6E76F0" stroke-width="1.4" stroke-dasharray="4 4" style="transform-box: view-box; transform-origin: 100px 148px; transform: rotate(-9deg);"/>
+        <path d="M 100,148 C 116.23,115.56 155.25,109.63 174.17,118.03 C 166.40,137.22 134.21,160.06 100,148 Z" fill="none" stroke="#6E76F0" stroke-width="1.4" stroke-dasharray="4 4" style="transform-box: view-box; transform-origin: 100px 148px; transform: rotate(9deg);"/>
+        <path d="M 100,148 C 54.84,138.27 38.62,92.47 45.20,66.75 C 71.51,70.28 107.90,102.48 100,148 Z" fill="none" stroke="#6E76F0" stroke-width="1.4" stroke-dasharray="4 4" style="transform-box: view-box; transform-origin: 100px 148px; transform: rotate(-5deg);"/>
+        <path d="M 100,148 C 92.10,102.48 128.49,70.28 154.80,66.75 C 161.38,92.47 145.16,138.27 100,148 Z" fill="none" stroke="#6E76F0" stroke-width="1.4" stroke-dasharray="4 4" style="transform-box: view-box; transform-origin: 100px 148px; transform: rotate(5deg);"/>
+        <circle cx="100" cy="144" r="12" fill="none" stroke="#F6C34D" stroke-width="1.4" stroke-dasharray="3 3"/>
+        <circle cx="100" cy="148" r="15" fill="none" stroke="#6E76F0" stroke-width="1" opacity="0.55"/>
+        <circle cx="100" cy="148" r="3.5" fill="#6E76F0"/>
+        <path d="M 42,172 Q 100,188 158,172" fill="none" stroke="#EDEFF3" stroke-width="5" stroke-linecap="round" opacity="0.22"/>
+      </svg>
+      <div style="display: flex; flex-direction: column; gap: 15px;">
+        <div style="font-family: 'Comfortaa', system-ui, sans-serif; font-size: 15px; font-weight: 700; color: #F4F1EA;">Anatomy — one anchor, three tiers</div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #6E76F0; width: 74px; flex-shrink: 0; padding-top: 2px;">100,148</span><span style="font-size: 13.5px; line-height: 1.55; color: #D6D3E2;">Every petal pivots on the base point. The bloom <strong style="color:#F4F1EA">opens like a hand</strong> — it never spins, because a rooted flower that rotates stops reading as rooted.</span></div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #6E76F0; width: 74px; flex-shrink: 0; padding-top: 2px;">1 · .55 · 0</span><span style="font-size: 13.5px; line-height: 1.55; color: #D6D3E2;">Travel ratio per tier. Outer petals swing the full angle, mid petals just over half, the centre petal holds still and scales only. This is what keeps the silhouette legible while it moves.</span></div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #F6C34D; width: 74px; flex-shrink: 0; padding-top: 2px;">100,144</span><span style="font-size: 13.5px; line-height: 1.55; color: #D6D3E2;">The seed is the only element on its own origin. It carries voice level and turn-taking — the one part a user's eye locks onto.</span></div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #EDEFF3; width: 74px; flex-shrink: 0; padding-top: 2px;">y 172</span><span style="font-size: 13.5px; line-height: 1.55; color: #D6D3E2;">The water line is the floor: it ripples when listening, flattens when muted, and drops out entirely below 24px.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="box-sizing: border-box; padding: 22px 30px; background: #101A3D; border: 1px solid rgba(255,255,255,0.13); border-radius: 22px; display: flex; align-items: center; gap: 30px; height: 168px;">
+    <div style="width: 186px; flex-shrink: 0;">
+      <div style="font-family: 'Comfortaa', system-ui, sans-serif; font-size: 15px; font-weight: 700; color: #F4F1EA; margin-bottom: 6px;">Size ramp</div>
+      <div style="font-size: 12.5px; line-height: 1.5; color: #A8A4C4;">Below 24px the water line goes, then the outer tier. The seed never goes — it is the recognition cue.</div>
+    </div>
+    <div style="display: flex; align-items: flex-end; gap: 34px;">
+
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 9px;">
+        <svg viewBox="0 0 200 200" width="96" height="96" aria-hidden="true"><path d="M 100,148 C 65.79,160.06 33.60,137.22 25.83,118.03 C 44.75,109.63 83.77,115.56 100,148 Z" fill="#FBE0D2"/><path d="M 100,148 C 116.23,115.56 155.25,109.63 174.17,118.03 C 166.40,137.22 134.21,160.06 100,148 Z" fill="#FBE0D2"/><path d="M 100,148 C 54.84,138.27 38.62,92.47 45.20,66.75 C 71.51,70.28 107.90,102.48 100,148 Z" fill="#F6C6AE"/><path d="M 100,148 C 92.10,102.48 128.49,70.28 154.80,66.75 C 161.38,92.47 145.16,138.27 100,148 Z" fill="#F6C6AE"/><path d="M 100,148 C 62.00,109.92 76.44,56.16 100,36.00 C 123.56,56.16 138.00,109.92 100,148 Z" fill="#F2AD85"/><circle cx="100" cy="144" r="12" fill="#F6C34D"/><path d="M 42,172 Q 100,188 158,172" fill="none" stroke="#EDEFF3" stroke-width="5" stroke-linecap="round" opacity="0.3"/></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A8A4C4;">96 · full</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 9px;">
+        <svg viewBox="0 0 200 200" width="64" height="64" aria-hidden="true"><path d="M 100,148 C 65.79,160.06 33.60,137.22 25.83,118.03 C 44.75,109.63 83.77,115.56 100,148 Z" fill="#FBE0D2"/><path d="M 100,148 C 116.23,115.56 155.25,109.63 174.17,118.03 C 166.40,137.22 134.21,160.06 100,148 Z" fill="#FBE0D2"/><path d="M 100,148 C 54.84,138.27 38.62,92.47 45.20,66.75 C 71.51,70.28 107.90,102.48 100,148 Z" fill="#F6C6AE"/><path d="M 100,148 C 92.10,102.48 128.49,70.28 154.80,66.75 C 161.38,92.47 145.16,138.27 100,148 Z" fill="#F6C6AE"/><path d="M 100,148 C 62.00,109.92 76.44,56.16 100,36.00 C 123.56,56.16 138.00,109.92 100,148 Z" fill="#F2AD85"/><circle cx="100" cy="144" r="12" fill="#F6C34D"/><path d="M 42,172 Q 100,188 158,172" fill="none" stroke="#EDEFF3" stroke-width="6" stroke-linecap="round" opacity="0.3"/></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A8A4C4;">64 · full</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 9px;">
+        <svg viewBox="0 0 200 200" width="48" height="48" aria-hidden="true"><path d="M 100,148 C 65.79,160.06 33.60,137.22 25.83,118.03 C 44.75,109.63 83.77,115.56 100,148 Z" fill="#FBE0D2"/><path d="M 100,148 C 116.23,115.56 155.25,109.63 174.17,118.03 C 166.40,137.22 134.21,160.06 100,148 Z" fill="#FBE0D2"/><path d="M 100,148 C 54.84,138.27 38.62,92.47 45.20,66.75 C 71.51,70.28 107.90,102.48 100,148 Z" fill="#F6C6AE"/><path d="M 100,148 C 92.10,102.48 128.49,70.28 154.80,66.75 C 161.38,92.47 145.16,138.27 100,148 Z" fill="#F6C6AE"/><path d="M 100,148 C 62.00,109.92 76.44,56.16 100,36.00 C 123.56,56.16 138.00,109.92 100,148 Z" fill="#F2AD85"/><circle cx="100" cy="144" r="13" fill="#F6C34D"/></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A8A4C4;">48 · no line</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 9px;">
+        <svg viewBox="0 0 200 200" width="32" height="32" aria-hidden="true"><path d="M 100,148 C 65.79,160.06 33.60,137.22 25.83,118.03 C 44.75,109.63 83.77,115.56 100,148 Z" fill="#FBE0D2"/><path d="M 100,148 C 116.23,115.56 155.25,109.63 174.17,118.03 C 166.40,137.22 134.21,160.06 100,148 Z" fill="#FBE0D2"/><path d="M 100,148 C 54.84,138.27 38.62,92.47 45.20,66.75 C 71.51,70.28 107.90,102.48 100,148 Z" fill="#F6C6AE"/><path d="M 100,148 C 92.10,102.48 128.49,70.28 154.80,66.75 C 161.38,92.47 145.16,138.27 100,148 Z" fill="#F6C6AE"/><path d="M 100,148 C 62.00,109.92 76.44,56.16 100,36.00 C 123.56,56.16 138.00,109.92 100,148 Z" fill="#F2AD85"/><circle cx="100" cy="144" r="14" fill="#F6C34D"/></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A8A4C4;">32 · no line</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 9px;">
+        <svg viewBox="0 0 200 200" width="24" height="24" aria-hidden="true"><path d="M 100,148 C 54.84,138.27 38.62,92.47 45.20,66.75 C 71.51,70.28 107.90,102.48 100,148 Z" fill="#F6C6AE"/><path d="M 100,148 C 92.10,102.48 128.49,70.28 154.80,66.75 C 161.38,92.47 145.16,138.27 100,148 Z" fill="#F6C6AE"/><path d="M 100,148 C 62.00,109.92 76.44,56.16 100,36.00 C 123.56,56.16 138.00,109.92 100,148 Z" fill="#F2AD85"/><circle cx="100" cy="144" r="16" fill="#F6C34D"/></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A8A4C4;">24 · reduced</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 9px;">
+        <svg viewBox="0 0 200 200" width="16" height="16" aria-hidden="true"><path d="M 100,148 C 54.84,138.27 38.62,92.47 45.20,66.75 C 71.51,70.28 107.90,102.48 100,148 Z" fill="#F6C6AE"/><path d="M 100,148 C 92.10,102.48 128.49,70.28 154.80,66.75 C 161.38,92.47 145.16,138.27 100,148 Z" fill="#F6C6AE"/><path d="M 100,148 C 62.00,109.92 76.44,56.16 100,36.00 C 123.56,56.16 138.00,109.92 100,148 Z" fill="#F2AD85"/><circle cx="100" cy="144" r="18" fill="#F6C34D"/></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A8A4C4;">16 · reduced</span>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 22px; height: 94px;">
+    <div style="font-family: 'Comfortaa', system-ui, sans-serif; font-size: 15px; font-weight: 700; color: #F4F1EA; width: 186px; flex-shrink: 0;">Palette on dark</div>
+    <div style="display: flex; gap: 12px; flex-grow: 1;">
+      <div style="flex-grow: 1; padding: 11px 13px; border-radius: 13px; background: #FBE0D2;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#0A1128;font-weight:500;">#FBE0D2</div><div style="font-size:11px;color:rgba(10,17,40,.68);margin-top:3px;">Outer tier</div></div>
+      <div style="flex-grow: 1; padding: 11px 13px; border-radius: 13px; background: #F6C6AE;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#0A1128;font-weight:500;">#F6C6AE</div><div style="font-size:11px;color:rgba(10,17,40,.68);margin-top:3px;">Mid tier</div></div>
+      <div style="flex-grow: 1; padding: 11px 13px; border-radius: 13px; background: #F2AD85;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#0A1128;font-weight:500;">#F2AD85</div><div style="font-size:11px;color:rgba(10,17,40,.68);margin-top:3px;">Centre</div></div>
+      <div style="flex-grow: 1; padding: 11px 13px; border-radius: 13px; background: #F6C34D;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#0A1128;font-weight:500;">#F6C34D</div><div style="font-size:11px;color:rgba(10,17,40,.68);margin-top:3px;">Seed</div></div>
+      <div style="flex-grow: 1; padding: 11px 13px; border-radius: 13px; background: #6E76F0;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#0A1128;font-weight:500;">#6E76F0</div><div style="font-size:11px;color:rgba(10,17,40,.72);margin-top:3px;">UI accent</div></div>
+      <div style="flex-grow: 1; padding: 11px 13px; border-radius: 13px; background: #B5544A;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#FFFDF8;font-weight:500;">#B5544A</div><div style="font-size:11px;color:rgba(255,253,248,.76);margin-top:3px;">Error</div></div>
+      <div style="flex-grow: 1; padding: 11px 13px; border-radius: 13px; background: #101A3D; border: 1px solid rgba(255,255,255,0.13);"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#F4F1EA;font-weight:500;">#101A3D</div><div style="font-size:11px;color:#A8A4C4;margin-top:3px;">Surface 1</div></div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":880}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

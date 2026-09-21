@@ -1,0 +1,229 @@
+/* ==========================================================================
+   Aixia voice lotus — motion system
+
+   Companion to voice-lotus.svg. Drives the mark through six voice states by
+   swapping a single class on the <svg class="aixia-lotus"> element:
+
+     .is-idle  .is-listening  .is-thinking  .is-speaking  .is-trouble  .is-muted
+
+   One class at a time, always. Overlapping animations are what make voice
+   orbs read as broken.
+
+   Colour tokens follow the same light/dark contract as frontend/app/globals.css:
+   light mode uses branding/AIxia-Logo/icon/icon.svg, dark mode uses the
+   icon-light.svg variant (which is the one drawn for dark backgrounds).
+   ========================================================================== */
+
+.aixia-lotus {
+  /* light — icon.svg */
+  --lotus-o:     #F0B49A;   /* outer tier  */
+  --lotus-m:     #E68A63;   /* mid tier    */
+  --lotus-c:     #D9663F;   /* centre      */
+  --lotus-seed:  #E8A93C;
+  --lotus-water: #3B4657;
+
+  --lotus-ease:  cubic-bezier(0.22, 1, 0.36, 1);   /* matches --ease  */
+  --lotus-soft:  cubic-bezier(0.45, 0, 0.55, 1);   /* for breathing   */
+  --lotus-shift: 420ms;                            /* matches --medium */
+
+  /* Live audio level, 0..1. Written by the rAF loop; see README. */
+  --amp: 0;
+
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .aixia-lotus {
+    --lotus-o:     #FBE0D2;
+    --lotus-m:     #F6C6AE;
+    --lotus-c:     #F2AD85;
+    --lotus-seed:  #F6C34D;
+    --lotus-water: #EDEFF3;
+  }
+}
+
+:root[data-theme="dark"] .aixia-lotus {
+  --lotus-o:     #FBE0D2;
+  --lotus-m:     #F6C6AE;
+  --lotus-c:     #F2AD85;
+  --lotus-seed:  #F6C34D;
+  --lotus-water: #EDEFF3;
+}
+
+/* --------------------------------------------------------------------------
+   Origins. Every petal pivots on the base anchor; the seed is the one
+   element on an origin of its own.
+   -------------------------------------------------------------------------- */
+
+.aixia-lotus .bloom,
+.aixia-lotus .pt,
+.aixia-lotus .rip,
+.aixia-lotus .water,
+.aixia-lotus .seed { transform-box: view-box; }
+
+.aixia-lotus .bloom,
+.aixia-lotus .pt   { transform-origin: 100px 148px; }
+.aixia-lotus .seed { transform-origin: 100px 144px; }
+.aixia-lotus .rip  { transform-origin: 100px 172px; opacity: 0; }
+
+.aixia-lotus .water      { opacity: 0.3; }
+.aixia-lotus .water-flat { opacity: 0; }
+
+/* State handover. Transitions cover the gap between two animations so a
+   state change never snaps. */
+.aixia-lotus .pt,
+.aixia-lotus .seed,
+.aixia-lotus .water {
+  transition:
+    transform var(--lotus-shift) var(--lotus-ease),
+    opacity   var(--lotus-shift) var(--lotus-ease),
+    fill      var(--lotus-shift) var(--lotus-ease),
+    stroke    var(--lotus-shift) var(--lotus-ease);
+}
+
+/* --------------------------------------------------------------------------
+   Keyframes
+   -------------------------------------------------------------------------- */
+
+@keyframes aixia-breathe   { 0%, 100% { transform: scale(1); }   50% { transform: scale(1.04); } }
+@keyframes aixia-seedglow  { 0%, 100% { opacity: .70; }          50% { opacity: 1; } }
+
+@keyframes aixia-open {
+  0%, 100% { transform: rotate(calc(var(--d) * var(--m) * 5deg))  scale(1.02); }
+  50%      { transform: rotate(calc(var(--d) * var(--m) * 10deg)) scale(1.07); }
+}
+
+@keyframes aixia-ripple {
+  0%   { transform: scale(.28); opacity: .55; }
+  100% { transform: scale(1.4);  opacity: 0;  }
+}
+
+@keyframes aixia-sweep {
+  0%, 100% { opacity: .34; transform: scale(.96);  }
+  20%      { opacity: 1;   transform: scale(1.05); }
+  50%      { opacity: .34; transform: scale(.96);  }
+}
+
+@keyframes aixia-sway { 0%, 100% { transform: rotate(-2.6deg); } 50% { transform: rotate(2.6deg); } }
+
+/* Fallback cycle for when no AnalyserNode is wired up yet. */
+@keyframes aixia-amp {
+  0%, 100% { transform: rotate(calc(var(--d) * var(--m) * 2deg))    scale(.96);  }
+  26%      { transform: rotate(calc(var(--d) * var(--m) * 12deg))   scale(1.14); }
+  48%      { transform: rotate(calc(var(--d) * var(--m) * 4deg))    scale(1);    }
+  72%      { transform: rotate(calc(var(--d) * var(--m) * 8.5deg))  scale(1.08); }
+}
+
+@keyframes aixia-seedamp {
+  0%, 100% { transform: scale(.88); opacity: .82; }
+  26%      { transform: scale(1.2); opacity: 1;   }
+  72%      { transform: scale(1.04); opacity: .95; }
+}
+
+@keyframes aixia-closepulse { 0%, 100% { transform: scale(1); opacity: .95; } 50% { transform: scale(.9); opacity: .55; } }
+
+/* --------------------------------------------------------------------------
+   States
+   -------------------------------------------------------------------------- */
+
+/* Idle — closed, resting breath. */
+.aixia-lotus.is-idle .bloom { animation: aixia-breathe 4200ms var(--lotus-soft) infinite; }
+.aixia-lotus.is-idle .seed  { animation: aixia-seedglow 4200ms var(--lotus-soft) infinite; }
+.aixia-lotus.is-idle .pt    { opacity: .82; }
+
+/* Listening — bloom splays open, ripples cross the water line. */
+.aixia-lotus.is-listening .pt {
+  animation: aixia-open 2800ms var(--lotus-ease) infinite;
+  animation-delay: calc(var(--s) * -140ms);
+}
+.aixia-lotus.is-listening .rip {
+  animation: aixia-ripple 2400ms var(--lotus-ease) infinite;
+  animation-delay: calc(var(--s) * -800ms);
+}
+.aixia-lotus.is-listening .water { opacity: .4; }
+
+/* Thinking — light travels petal to petal, bloom sways. Covers RAG latency
+   without borrowing a spinner. */
+.aixia-lotus.is-thinking .bloom { animation: aixia-sway 3400ms var(--lotus-soft) infinite; }
+.aixia-lotus.is-thinking .pt {
+  animation: aixia-sweep 1700ms var(--lotus-soft) infinite;
+  animation-delay: calc(var(--s) * -280ms);
+}
+
+/* Speaking — LIVE. Petals read --amp directly; no animation, no per-petal JS.
+   Add .no-audio to fall back to the canned cycle above. */
+.aixia-lotus.is-speaking .pt {
+  transform:
+    rotate(calc(var(--d) * var(--m) * var(--amp) * 14deg))
+    scale(calc(1 + var(--amp) * 0.16));
+  /* The rAF loop already smooths; a transition here would double-lag it. */
+  transition: fill var(--lotus-shift) var(--lotus-ease);
+}
+.aixia-lotus.is-speaking .seed {
+  transform: scale(calc(0.9 + var(--amp) * 0.34));
+  opacity: calc(0.82 + var(--amp) * 0.18);
+  transition: fill var(--lotus-shift) var(--lotus-ease);
+}
+
+.aixia-lotus.is-speaking.no-audio .pt {
+  transform: none;
+  animation: aixia-amp 920ms var(--lotus-soft) infinite;
+  animation-delay: calc(var(--r) * -115ms);
+}
+.aixia-lotus.is-speaking.no-audio .seed {
+  transform: none;
+  animation: aixia-seedamp 920ms var(--lotus-soft) infinite;
+}
+
+/* Trouble — contracts on a slow pulse, colour drops to clay, water flattens.
+   Never shown without accompanying text. */
+.aixia-lotus.is-trouble {
+  --lotus-o:     #E0938B;
+  --lotus-m:     #CB6E63;
+  --lotus-c:     #B5544A;   /* matches --error */
+  --lotus-seed:  #C98A4B;   /* matches --warning */
+}
+.aixia-lotus.is-trouble .bloom      { animation: aixia-closepulse 1700ms var(--lotus-soft) infinite; }
+.aixia-lotus.is-trouble .water      { opacity: 0; }
+.aixia-lotus.is-trouble .water-flat { opacity: .22; }
+
+/* Muted — petals fold in, colour drains, seed goes hollow, everything stops.
+   The slash belongs on the mute button, not across the mark. */
+.aixia-lotus.is-muted {
+  --lotus-o:     #3E4A6B;
+  --lotus-m:     #36415F;
+  --lotus-c:     #2E3852;
+  --lotus-water: #6C7590;
+}
+.aixia-lotus.is-muted .pt         { transform: rotate(calc(var(--d) * var(--m) * -8deg)) scale(.86); }
+.aixia-lotus.is-muted .seed       { fill: none; stroke: #6C7590; stroke-width: 2.5; }
+.aixia-lotus.is-muted .water      { opacity: 0; }
+.aixia-lotus.is-muted .water-flat { opacity: .4; }
+
+/* --------------------------------------------------------------------------
+   Reduced motion — every loop collapses to the static pose at the top of its
+   cycle. The state still reads; nothing oscillates.
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .aixia-lotus .bloom,
+  .aixia-lotus .pt,
+  .aixia-lotus .seed,
+  .aixia-lotus .rip { animation: none !important; }
+
+  .aixia-lotus.is-listening .pt { transform: rotate(calc(var(--d) * var(--m) * 9deg)) scale(1.05); }
+  .aixia-lotus.is-speaking  .pt { transform: rotate(calc(var(--d) * var(--m) * 7deg)) scale(1.06); }
+  .aixia-lotus.is-thinking  .pt { opacity: .7; }
+  .aixia-lotus.is-trouble   .bloom { transform: scale(.94); opacity: .7; }
+}
+
+/* --------------------------------------------------------------------------
+   Reduced form — below 24px the water line and outer tier drop out.
+   Apply .is-reduced, or set it from the render size.
+   -------------------------------------------------------------------------- */
+
+.aixia-lotus.is-reduced .water,
+.aixia-lotus.is-reduced .water-flat,
+.aixia-lotus.is-reduced .rip  { display: none; }
+.aixia-lotus.is-reduced .t1   { display: none; }
+.aixia-lotus.is-reduced .seed { r: 16; }

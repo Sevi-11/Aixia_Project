@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Aixia voice call — in situ</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Comfortaa:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap">
+<style>
+body{margin:0;background:#0A1128;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#6E76F0}a:hover{color:#9AA0F6}
+.bloom,.pt,.water{transform-box:view-box}
+.bloom{transform-origin:100px 148px}
+.pt{transform-origin:100px 148px}
+.seed{transform-box:view-box;transform-origin:100px 144px}
+@keyframes amp{0%,100%{transform:rotate(calc(var(--d) * var(--m) * 2deg)) scale(.96)}26%{transform:rotate(calc(var(--d) * var(--m) * 12deg)) scale(1.14)}48%{transform:rotate(calc(var(--d) * var(--m) * 4deg)) scale(1)}72%{transform:rotate(calc(var(--d) * var(--m) * 8.5deg)) scale(1.08)}}
+@keyframes seedamp{0%,100%{transform:scale(.88);opacity:.82}26%{transform:scale(1.2);opacity:1}72%{transform:scale(1.04);opacity:.95}}
+@keyframes glow{0%,100%{opacity:.5}30%{opacity:1}}
+.speak .pt{animation:amp .92s cubic-bezier(.45,0,.55,1) infinite;animation-delay:calc(var(--r) * -.115s)}
+.speak .seed{animation:seedamp .92s cubic-bezier(.45,0,.55,1) infinite}
+.speak .halo{animation:glow .92s cubic-bezier(.45,0,.55,1) infinite}
+@media (prefers-reduced-motion:reduce){.pt,.seed,.halo{animation:none !important}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0A1128; color: #F4F1EA; display: flex; flex-direction: column; padding: 16px; gap: 14px;">
+
+  <div style="box-sizing: border-box; height: 58px; flex-shrink: 0; padding: 0 10px 0 8px; background: rgba(16,26,61,0.9); border: 1px solid rgba(255,255,255,0.13); border-radius: 26px; box-shadow: 0 0.9rem 2.4rem rgba(0,0,0,0.4); display: flex; align-items: center; gap: 10px;">
+    <button type="button" aria-label="Back to chat" style="width: 44px; height: 44px; flex-shrink: 0; border: 0; background: transparent; border-radius: 50%; color: #F4F1EA; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px;">
+      <span style="font-family: 'Comfortaa', system-ui, sans-serif; font-size: 15px; font-weight: 700; color: #F4F1EA;">Aixia</span>
+      <span style="font-size: 11.5px; color: #A8A4C4;">Voice · connected</span>
+    </div>
+    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #A8A4C4; padding-right: 6px;">2:14</span>
+  </div>
+
+  <div class="speak" style="flex-grow: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px;">
+    <div class="halo" style="position: absolute; width: 330px; height: 330px; top: 50%; left: 50%; margin: -190px 0 0 -165px; border-radius: 50%; background: radial-gradient(circle, rgba(246,195,77,0.13) 0%, rgba(246,195,77,0) 66%); pointer-events: none;"></div>
+    <svg viewBox="0 0 200 200" width="236" height="236" aria-hidden="true" style="position: relative;">
+      <g class="bloom">
+        <path class="pt" d="M 100,148 C 65.79,160.06 33.60,137.22 25.83,118.03 C 44.75,109.63 83.77,115.56 100,148 Z" fill="#FBE0D2" style="--d:-1;--m:1;--r:0"/>
+        <path class="pt" d="M 100,148 C 116.23,115.56 155.25,109.63 174.17,118.03 C 166.40,137.22 134.21,160.06 100,148 Z" fill="#FBE0D2" style="--d:1;--m:1;--r:3"/>
+        <path class="pt" d="M 100,148 C 54.84,138.27 38.62,92.47 45.20,66.75 C 71.51,70.28 107.90,102.48 100,148 Z" fill="#F6C6AE" style="--d:-1;--m:.55;--r:5"/>
+        <path class="pt" d="M 100,148 C 92.10,102.48 128.49,70.28 154.80,66.75 C 161.38,92.47 145.16,138.27 100,148 Z" fill="#F6C6AE" style="--d:1;--m:.55;--r:1"/>
+        <path class="pt" d="M 100,148 C 62.00,109.92 76.44,56.16 100,36.00 C 123.56,56.16 138.00,109.92 100,148 Z" fill="#F2AD85" style="--d:0;--m:0;--r:4"/>
+        <circle class="seed" cx="100" cy="144" r="12" fill="#F6C34D"/>
+        <path class="water" d="M 42,172 Q 100,188 158,172" fill="none" stroke="#EDEFF3" stroke-width="5" stroke-linecap="round" opacity="0.3"/>
+      </g>
+    </svg>
+    <div style="position: relative; display: flex; align-items: center; gap: 9px; padding: 8px 18px 8px 14px; background: rgba(246,195,77,0.14); border: 1px solid rgba(246,195,77,0.34); border-radius: 999px;">
+      <span style="width: 7px; height: 7px; border-radius: 50%; background: #F6C34D; display: block;"></span>
+      <span style="font-family: 'Comfortaa', system-ui, sans-serif; font-size: 13px; font-weight: 500; color: #F6C34D;">Aixia is speaking</span>
+    </div>
+  </div>
+
+  <div style="box-sizing: border-box; flex-shrink: 0; padding: 18px 20px; background: rgba(16,26,61,0.86); border: 1px solid rgba(255,255,255,0.13); border-radius: 26px; display: flex; flex-direction: column; gap: 9px;">
+    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.08em; color: #6E76F0;">LIVE TRANSCRIPT</span>
+    <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #F4F1EA;">Thursday is mostly clear. One thing still open — the Dockerfile review you flagged last week. Want me to pull the diff?</p>
+  </div>
+
+  <div style="box-sizing: border-box; flex-shrink: 0; height: 88px; padding: 0 22px; background: rgba(16,26,61,0.9); border: 1px solid rgba(255,255,255,0.13); border-radius: 32px; box-shadow: 0 1.2rem 3.2rem rgba(0,0,0,0.42); display: flex; align-items: center; justify-content: space-between;">
+    <button type="button" aria-label="Mute microphone" style="width: 56px; height: 56px; border: 1px solid rgba(255,255,255,0.13); background: #182552; border-radius: 50%; color: #F4F1EA; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><path d="M12 18v4"/></svg>
+    </button>
+    <button type="button" aria-label="End voice call" style="width: 66px; height: 66px; border: 0; background: #B5544A; border-radius: 50%; color: #FFFDF8; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 0.7rem 1.8rem rgba(181,84,74,0.42);">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform: rotate(135deg);"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.69 2.81a2 2 0 0 1-.45 2.11L8.1 9.9a16 16 0 0 0 6 6l1.26-1.26a2 2 0 0 1 2.11-.45c.9.33 1.85.56 2.81.69A2 2 0 0 1 22 16.92z"/></svg>
+    </button>
+    <button type="button" aria-label="Switch to keyboard" style="width: 56px; height: 56px; border: 1px solid rgba(255,255,255,0.13); background: #182552; border-radius: 50%; color: #F4F1EA; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 13h6"/></svg>
+    </button>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

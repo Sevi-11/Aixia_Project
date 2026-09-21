@@ -1,6 +1,6 @@
 "use client";
 
-import { LotusIcon, LotusIconDark, MoonIcon, SpeakerOffIcon, SpeakerOnIcon, SunIcon } from "./icons";
+import { MoonIcon, SpeakerOffIcon, SpeakerOnIcon, SunIcon } from "./icons";
 import Xia from "./xia/Xia";
 
 const STATUS_LABEL = {
@@ -19,18 +19,13 @@ export default function AppHeader({ title, status, xiaState, mode, onSetMode, in
   return (
     <header className="app-header glass">
       <div className="header-left">
-        {/* The sidebar has no visible collapsed state at any width — it is
-            always an off-screen drawer until this is clicked — so this is the
-            only way to reach conversation history, everywhere. */}
+        {/* One mark, two jobs: the animated lotus is both AIxia's brand and her
+            live state, and it is the only way to reach conversation history (the
+            sidebar has no visible collapsed state at any width — it is always an
+            off-screen drawer until this is clicked). */}
         <button type="button" className="header-menu" onClick={onOpenSidebar} aria-label="Open sidebar" title="Open sidebar">
-          <span className="brand-mark" aria-hidden="true">
-            <span className="icon-swap theme-icon">
-              <LotusIcon />
-              <LotusIconDark />
-            </span>
-          </span>
+          <Xia state={xiaState} />
         </button>
-        <Xia state={xiaState} />
         <div className="header-title">{title}</div>
       </div>
       <div className="header-right">

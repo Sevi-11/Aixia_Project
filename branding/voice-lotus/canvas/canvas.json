@@ -1,0 +1,82 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Main.dc.html": {
+      "h": 880,
+      "title": "The mark",
+      "w": 1280,
+      "x": 0,
+      "y": 0
+    },
+    "Motion.dc.html": {
+      "h": 880,
+      "title": "Motion spec",
+      "w": 1280,
+      "x": 470,
+      "y": 1400
+    },
+    "States.dc.html": {
+      "h": 1000,
+      "title": "Six voice states",
+      "w": 1280,
+      "x": 1360,
+      "y": 0
+    },
+    "VoiceUI.dc.html": {
+      "h": 844,
+      "title": "Voice call — in situ",
+      "w": 390,
+      "x": 0,
+      "y": 1400
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-09-21T12:34:36.968Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "n1": {
+      "color": "blue",
+      "text": "Built from your real icon.svg — the same five petal paths, seed and water line, unchanged. Only the pivot is new: everything rotates about 100,148, so the bloom opens like a hand instead of spinning like a loader.",
+      "w": 320,
+      "x": 2720,
+      "y": 60
+    },
+    "n2": {
+      "color": "purple",
+      "text": "Colours are the icon-light variant (the one meant for dark backgrounds). Indigo #6E76F0 stays the UI accent — it never enters the mark itself, so the no-gold-accent rule still holds where it applies.",
+      "w": 320,
+      "x": 2720,
+      "y": 380
+    },
+    "t1": {
+      "kind": "title1",
+      "maxW": 2640,
+      "text": "Aixia voice lotus — symbol & states",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "t2": {
+      "kind": "title1",
+      "maxW": 1750,
+      "text": "In situ & motion spec",
+      "w": 240,
+      "x": 0,
+      "y": 1120
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "States.dc.html",
+    "VoiceUI.dc.html",
+    "Motion.dc.html"
+  ],
+  "pages": [],
+  "title": "Aixia Voice Lotus"
+}

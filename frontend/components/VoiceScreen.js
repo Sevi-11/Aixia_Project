@@ -8,6 +8,8 @@ const STATE_LABEL = {
   listening: "Listening…",
   thinking: "Thinking…",
   speaking: "Speaking…",
+  trouble: "Something went wrong",
+  muted: "Muted — voice is off",
 };
 
 // The chat thread and composer, replaced wholesale — a call, not a page with

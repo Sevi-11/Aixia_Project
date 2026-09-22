@@ -245,19 +245,26 @@ export default function ChatWindow() {
     const root = document.documentElement;
 
     if (themeSettled.current) {
-      // Every panel and bubble changes color at once here. Component rules own
-      // the `transition` shorthand, so the only way to tween all of them is to
-      // outrank those rules for the length of the swap — see .theme-transition
-      // in globals.css — then get out of the way so hover timings stay snappy.
-      root.classList.add("theme-transition");
-      // The flush is load-bearing: a transition only starts when the property
-      // is already in the *previous* computed style. Adding the class and
-      // flipping data-theme in one tick batches into a single recalc, the
-      // browser sees no prior transition, and every colour snaps instead.
-      void root.offsetHeight;
-      const done = setTimeout(() => root.classList.remove("theme-transition"), 460);
-      root.setAttribute("data-theme", theme);
-      syncBrowserChrome(theme);
+      // Flip the theme with a centre-out circle reveal (View Transitions API,
+      // see ::view-transition in globals.css). `.theme-transition` suppresses
+      // every element's own transition so the new snapshot is the finished
+      // theme, not a mid-fade -- the circle is the only motion. Browsers without
+      // the API (or under reduced-motion) just snap.
+      const apply = () => {
+        root.classList.add("theme-transition");
+        root.setAttribute("data-theme", theme);
+        syncBrowserChrome(theme);
+      };
+      const settle = () => root.classList.remove("theme-transition");
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      let done;
+      if (document.startViewTransition && !reduce) {
+        document.startViewTransition(apply).finished.finally(settle);
+      } else {
+        apply();
+        done = setTimeout(settle, 60);
+      }
       try {
         localStorage.setItem(THEME_KEY, theme);
       } catch {
@@ -506,7 +513,14 @@ export default function ChatWindow() {
         onSources: (sources) => updateLastMessage(chatId, (message) => ({ ...message, sources })),
 
         onReveal: (chunk) => {
-          forXia("reveal");
+          // "speaking" tracks text revealing -- except on a voice call, where
+          // there is no text on screen and she does not read aloud until the
+          // answer has fully settled. Flipping to speaking on the first token
+          // there would show the speaking figure for the whole (silent) stream,
+          // then start the voice seconds later. On a call, let the audio drive
+          // it: she stays thinking until the speaker's onStart fires at real
+          // audio onset (see tts.js), which sends its own "reveal".
+          if (interactionModeRef.current !== "voice") forXia("reveal");
           updateLastMessage(chatId, (message) => ({ ...message, content: message.content + chunk }));
         },
 

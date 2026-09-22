@@ -143,21 +143,32 @@ body {
   overflow: hidden;
   overscroll-behavior: none;
   margin: 0;
-  transition: background var(--medium), color var(--medium);
 }
 
+/* Theme swap: suppress every transition for the length of the flip so all
+   areas snap in one paint. A tweened swap can't stay in sync -- the glass
+   header/footer repaint cheaply while the full-viewport middle (body + ambient
+   gradients) repaints slowly, so any duration lets the middle trail. Instant is
+   the only synced option, and it also kills the perceived delay. */
 html.theme-transition,
 html.theme-transition *,
 html.theme-transition *::before,
 html.theme-transition *::after {
-  transition: background-color var(--medium),
-              background-image var(--medium),
-              border-color var(--medium),
-              color var(--medium),
-              fill var(--medium),
-              stroke var(--medium),
-              box-shadow var(--medium) !important;
-  transition-delay: 0s !important;
+  transition: none !important;
+}
+
+/* Theme swap: a soft cross-dissolve (View Transitions API). The new theme fades
+   up over the old one held underneath -- the light in the room changing, not an
+   edge swept across it. One snapshot fading means it can't desync, and there is
+   no moving boundary for the eye to chase. Browsers without the API (or under
+   reduced-motion) just snap; see ChatWindow's theme effect. */
+::view-transition-old(root) { animation: none; }
+::view-transition-new(root) {
+  animation: theme-dissolve 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes theme-dissolve {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

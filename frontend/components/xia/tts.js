@@ -154,7 +154,19 @@ export function createSpeaker({ onStart, onEnd } = {}) {
       if (!chunks.length) return false;
 
       speaking = true;
-      onStart?.();
+
+      // Announce speaking on the engine's REAL audio onset, not before it. The
+      // synth spins up with a latency of its own -- a few hundred ms for a local
+      // voice, seconds for a remote one -- and firing onStart eagerly here made
+      // the figure flip to "speaking" while she was still silent. `onstart` is
+      // the exact audio-onset event; the watchdog below covers engines that
+      // never fire it by announcing the moment `synth.speaking` goes true.
+      let announced = false;
+      const announce = () => {
+        if (announced || mine !== generation) return;
+        announced = true;
+        onStart?.();
+      };
 
       try {
         for (const chunk of chunks) {
@@ -172,6 +184,7 @@ export function createSpeaker({ onStart, onEnd } = {}) {
             if (voice) utterance.voice = voice;
             utterance.rate = 1;
             utterance.pitch = 1;
+            utterance.onstart = announce;
             // `error` fires on cancel() too, so both paths just finish and let
             // the generation check above decide whether to keep going.
             utterance.onend = finish;
@@ -188,6 +201,8 @@ export function createSpeaker({ onStart, onEnd } = {}) {
             // the moment between speak() and the engine picking the utterance up.
             const startedAt = Date.now();
             const watchdog = setInterval(() => {
+              // Sync the figure to real audio for engines that skip `onstart`.
+              if (synth.speaking) announce();
               if (Date.now() - startedAt < GRACE_MS) return;
               if (!synth.speaking && !synth.pending) finish();
             }, 250);

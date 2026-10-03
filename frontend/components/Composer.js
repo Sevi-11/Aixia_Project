@@ -9,7 +9,9 @@ const UPLOAD_URL = "/api/documents/upload/";
 // cookie the browser will never send back here, which is why uploading used
 // to stay forbidden however many times you signed in.
 const LOGIN_URL = "/admin/login/?next=/";
-const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // Mirrors the backend's own ceiling.
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // Mirrors MAX_UPLOAD_SIZE_BYTES in backend/apps/documents/c_views.py.
+// Mirrors MAX_QUESTION_LENGTH in backend/apps/chat/a_serializers.py.
+const MAX_QUESTION_LENGTH = 2000;
 
 // DRF's SessionAuthentication enforces CSRF on unsafe methods, so a session
 // cookie alone is not enough: without this header the upload is rejected with
@@ -71,7 +73,7 @@ export default function Composer({ value, onChange, onSend, onExport, disabled, 
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      setAttach({ state: "error", message: "That file is over the 20 MB limit." });
+      setAttach({ state: "error", message: "That file is over the 4 MB limit." });
       return;
     }
 
@@ -165,6 +167,7 @@ export default function Composer({ value, onChange, onSend, onExport, disabled, 
             className="composer-input"
             rows="1"
             placeholder="Message Aixia…"
+            maxLength={MAX_QUESTION_LENGTH}
             value={value}
             disabled={disabled}
             onChange={handleInput}

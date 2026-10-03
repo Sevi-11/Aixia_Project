@@ -52,10 +52,9 @@ class GeneralModeStreamTests(TestCase):
     @patch("chat.b_views.get_general_llm")
     @patch("chat.b_views.generate_title")
     @patch("chat.b_views.answer_general_stream")
-    @patch("chat.b_views.load_vectorstore")
-    @patch("chat.b_views.get_embeddings")
+    @patch("chat.b_views.get_vectorstore")
     def test_general_mode_skips_retrieval_and_emits_empty_sources(
-        self, mock_embeddings, mock_vectorstore, mock_general, mock_title, mock_general_llm
+        self, mock_vectorstore, mock_general, mock_title, mock_general_llm
     ):
         mock_general.return_value = iter(["A vector database ", "stores embeddings."])
         mock_title.return_value = "Vector databases"
@@ -69,7 +68,6 @@ class GeneralModeStreamTests(TestCase):
 
         # Nothing was retrieved. Embedding a query costs quota of its own, so
         # this asserts the work was skipped, not merely that it went unused.
-        mock_embeddings.assert_not_called()
         mock_vectorstore.assert_not_called()
 
         tokens = [e["content"] for e in events if e["type"] == "token"]
@@ -118,13 +116,11 @@ class GeneralModeStreamTests(TestCase):
     @patch("chat.b_views.generate_title")
     @patch("chat.b_views.generate_followup_suggestions")
     @patch("chat.b_views.answer_question_stream")
-    @patch("chat.b_views.load_vectorstore")
-    @patch("chat.b_views.get_embeddings")
+    @patch("chat.b_views.get_vectorstore")
     def test_grounded_mode_is_not_caught_by_the_general_throttle(
-        self, mock_embeddings, mock_vectorstore, mock_answer, mock_suggestions, mock_title
+        self, mock_vectorstore, mock_answer, mock_suggestions, mock_title
     ):
         """The general limit must not become a limit on the app's real purpose."""
-        mock_embeddings.return_value = object()
         mock_vectorstore.return_value = object()
         mock_suggestions.return_value = []
         mock_title.return_value = "A title"

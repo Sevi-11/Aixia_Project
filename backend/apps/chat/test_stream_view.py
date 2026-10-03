@@ -22,12 +22,10 @@ class ChatStreamViewTests(TestCase):
     @patch("chat.b_views.generate_title")
     @patch("chat.b_views.generate_followup_suggestions")
     @patch("chat.b_views.answer_question_stream")
-    @patch("chat.b_views.load_vectorstore")
-    @patch("chat.b_views.get_embeddings")
+    @patch("chat.b_views.get_vectorstore")
     def test_streams_sources_then_tokens_then_suggestions_then_done(
-        self, mock_get_embeddings, mock_load_vectorstore, mock_answer_stream, mock_suggestions, mock_title
+        self, mock_load_vectorstore, mock_answer_stream, mock_suggestions, mock_title
     ):
-        mock_get_embeddings.return_value = object()
         mock_load_vectorstore.return_value = object()
         docs = [FakeDoc("Sean has ML experience.", 1, "cv.pdf")]
         mock_answer_stream.return_value = (docs, iter(["Hello", " world"]))
@@ -81,12 +79,10 @@ class ChatStreamViewTests(TestCase):
     @patch("chat.b_views.generate_title")
     @patch("chat.b_views.generate_followup_suggestions")
     @patch("chat.b_views.answer_question_stream")
-    @patch("chat.b_views.load_vectorstore")
-    @patch("chat.b_views.get_embeddings")
+    @patch("chat.b_views.get_vectorstore")
     def test_regenerate_replaces_last_answer_without_duplicating_the_question(
-        self, mock_get_embeddings, mock_load_vectorstore, mock_answer_stream, mock_suggestions, mock_title
+        self, mock_load_vectorstore, mock_answer_stream, mock_suggestions, mock_title
     ):
-        mock_get_embeddings.return_value = object()
         mock_load_vectorstore.return_value = object()
         mock_answer_stream.return_value = ([], iter(["New", " answer"]))
         mock_suggestions.return_value = []
@@ -159,12 +155,10 @@ class ChatStreamTitleTests(TestCase):
     @patch("chat.b_views.generate_title")
     @patch("chat.b_views.generate_followup_suggestions")
     @patch("chat.b_views.answer_question_stream")
-    @patch("chat.b_views.load_vectorstore")
-    @patch("chat.b_views.get_embeddings")
+    @patch("chat.b_views.get_vectorstore")
     def test_emits_a_title_on_the_opening_turn_only(
-        self, mock_embeddings, mock_store, mock_stream, mock_suggestions, mock_title
+        self, mock_store, mock_stream, mock_suggestions, mock_title
     ):
-        mock_embeddings.return_value = object()
         mock_store.return_value = object()
         mock_suggestions.return_value = []
         mock_title.return_value = "Machine learning experience"
@@ -205,12 +199,10 @@ class ChatStreamTitleTests(TestCase):
     @patch("chat.b_views.generate_title")
     @patch("chat.b_views.generate_followup_suggestions")
     @patch("chat.b_views.answer_question_stream")
-    @patch("chat.b_views.load_vectorstore")
-    @patch("chat.b_views.get_embeddings")
+    @patch("chat.b_views.get_vectorstore")
     def test_omits_the_title_event_when_generation_yields_nothing(
-        self, mock_embeddings, mock_store, mock_stream, mock_suggestions, mock_title
+        self, mock_store, mock_stream, mock_suggestions, mock_title
     ):
-        mock_embeddings.return_value = object()
         mock_store.return_value = object()
         mock_suggestions.return_value = []
         mock_title.return_value = ""      # model failed, or returned junk

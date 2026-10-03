@@ -209,6 +209,17 @@ if not DEBUG:
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    # How many proxies sit in front of Django and append to X-Forwarded-For.
+    # Left unset, DRF identifies a client by the WHOLE header -- which the
+    # client writes itself -- so a random value per request meant a fresh
+    # throttle bucket per request. With a count, DRF takes the entry the last
+    # trusted proxy appended instead.
+    #
+    # 1 is right for Vercel Services (which overwrites the header with the real
+    # client IP) and for Render reached directly (which appends it). Behind the
+    # Next.js rewrite to Render it is too strict rather than too loose: every
+    # visitor shares Vercel's egress address. Set TRUSTED_PROXY_COUNT=2 there.
+    'NUM_PROXIES': int(os.getenv('TRUSTED_PROXY_COUNT', '1')),
     'DEFAULT_THROTTLE_RATES': {
         'anon': '30/min',
         # General mode runs on Gemini's free tier, which caps REQUESTS PER DAY
@@ -216,6 +227,33 @@ REST_FRAMEWORK = {
         # keeps one reader from spending the day's allowance; see
         # apps/chat/d_throttles.py.
         'general_chat': '10/hour',
+        # And a ceiling shared by everyone, kept under the provider's daily
+        # quota, so that no per-visitor workaround can exhaust it.
+        'general_chat_daily': os.getenv('GENERAL_CHAT_DAILY_LIMIT', '200/day'),
+        # Site mode is the portfolio widget. It is on every page of a public
+        # site, so it gets its own per-visitor limit...
+        'site_chat': os.getenv('SITE_CHAT_LIMIT', '20/hour'),
+        # ...and it shares Groq with grounded mode. Groq's free tier caps
+        # output tokens per minute for the whole account, so one ceiling across
+        # both modes keeps the widget from starving the app, and vice versa.
+        'groq_daily': os.getenv('GROQ_DAILY_LIMIT', '1000/day'),
+    },
+}
+
+# Shared secret for POST /api/knowledge/sync/, which the portfolio's GitHub
+# Action calls to refresh the website knowledge. Unset disables the endpoint.
+KNOWLEDGE_SYNC_TOKEN = os.getenv('KNOWLEDGE_SYNC_TOKEN', '')
+
+# Throttle counters live in the cache. The default in-memory cache is private
+# to one process and emptied on every restart -- and a free-tier instance
+# restarts each time it wakes, or (on Vercel) runs as several instances at
+# once -- so the limits above would reset exactly when they matter. A table in
+# the existing Postgres is shared and durable at the cost of a query per
+# request. The chat app's 0002 migration creates it.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'django_cache',
     },
 }
 

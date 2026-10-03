@@ -111,7 +111,24 @@ services:
       # directly. Setting it REPLACES the localhost defaults in settings.py,
       # which is what you want in production.
       - key: CORS_ALLOWED_ORIGINS
-        value: https://aixia-project.vercel.app
+        # The portfolio's assistant widget calls the API from the visitor's
+        # browser on sevi-11.github.io, so that origin needs CORS as well.
+        value: https://aixia-project.vercel.app,https://sevi-11.github.io
+
+      # Browser requests reach this service through the Vercel frontend's
+      # rewrite: Vercel writes the visitor's address into X-Forwarded-For and
+      # Render appends Vercel's. Two proxies, so the throttles count the
+      # visitor rather than Vercel. See REST_FRAMEWORK in settings.py.
+      - key: TRUSTED_PROXY_COUNT
+        value: "2"
+
+      # Shared secret for POST /api/knowledge/sync/, which the portfolio
+      # repo's GitHub Action calls. Must match the AIXIA_SYNC_TOKEN secret
+      # there. Like every sync: false entry, Render only prompts for this when
+      # the blueprint is first created -- on the existing service, add it by
+      # hand in the dashboard.
+      - key: KNOWLEDGE_SYNC_TOKEN
+        sync: false
 
       # Supabase Storage, which speaks the S3 protocol. Without these, uploads
       # land on the container filesystem and are destroyed on the next deploy.

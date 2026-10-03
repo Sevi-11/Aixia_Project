@@ -7,12 +7,13 @@ error to notice -- retrieval would just silently return nothing. Keeping the
 vectors in Postgres means they live exactly as long as the database does, and
 removes a component that would otherwise need hosting of its own.
 """
+import functools
 import os
 
 from langchain_postgres import PGVector
 from sqlalchemy import create_engine, text
 
-from .c_embeddings import EMBEDDING_DIMENSIONS
+from .c_embeddings import EMBEDDING_DIMENSIONS, get_embeddings
 
 COLLECTION_NAME = os.getenv('PGVECTOR_COLLECTION', 'aixia_documents')
 
@@ -40,17 +41,48 @@ def connection_string():
     return url
 
 
+@functools.cache
+def get_engine():
+    """One SQLAlchemy engine, and so one connection pool, per process.
+
+    Handing PGVector a URL instead makes it build a fresh engine every time,
+    and nothing ever disposes of those -- each request left a pool holding
+    connections open against Supabase's small client limit.
+
+    pre_ping and recycle because the pooler closes idle connections, and a
+    free-tier instance can sit idle for a long time between visitors.
+    """
+    return create_engine(
+        connection_string(),
+        pool_size=4,
+        max_overflow=2,
+        pool_pre_ping=True,
+        pool_recycle=300,
+    )
+
+
 def load_vectorstore(embedder):
     return PGVector(
         embeddings=embedder,
         collection_name=COLLECTION_NAME,
-        connection=connection_string(),
+        connection=get_engine(),
         # Declaring the width makes the column vector(768) instead of an
         # unconstrained vector, which is what lets Postgres build an index on
         # it. Without this, searches still work but degrade to a full scan.
         embedding_length=EMBEDDING_DIMENSIONS,
         use_jsonb=True,
     )
+
+
+@functools.cache
+def get_vectorstore():
+    """The process-wide store. Use this rather than load_vectorstore().
+
+    Constructing a PGVector is not free: it runs CREATE EXTENSION, creates the
+    tables if missing, and looks up the collection -- several round trips that
+    used to happen on every chat request. Once per process is enough.
+    """
+    return load_vectorstore(get_embeddings())
 
 
 def build_vectorstore(chunks, embedder):
@@ -95,16 +127,67 @@ def delete_document_vectors(document_id) -> int:
     Scoped to this collection: one database can hold several, and a bare
     delete on the metadata would reach into all of them.
     """
-    engine = create_engine(connection_string())
-    try:
-        with engine.begin() as connection:
-            result = connection.execute(
-                DELETE_BY_DOCUMENT_ID,
-                # Compared as text because ->> yields text, which sidesteps
-                # whether ingestion happened to store the id as a JSON number
-                # or a string.
-                {"document_id": str(document_id), "collection": COLLECTION_NAME},
-            )
-        return result.rowcount
-    finally:
-        engine.dispose()
+    with get_engine().begin() as connection:
+        result = connection.execute(
+            DELETE_BY_DOCUMENT_ID,
+            # Compared as text because ->> yields text, which sidesteps
+            # whether ingestion happened to store the id as a JSON number
+            # or a string.
+            {"document_id": str(document_id), "collection": COLLECTION_NAME},
+        )
+    return result.rowcount
+
+
+# Chunks that came from an uploaded document (the CV and anything else the
+# owner ingests) carry the document_id that ingestion writes; chunks synced
+# from the website never do. Filtering on its presence keeps grounded mode on
+# documents only, and works for chunks indexed before source_type existed.
+DOCUMENTS_ONLY = {"document_id": {"$exists": True}}
+
+# Website knowledge, as synced by POST /api/knowledge/sync/.
+KNOWLEDGE_TYPES = ("site", "blog", "help")
+
+SELECT_KNOWLEDGE_HASHES = text(
+    "SELECT DISTINCT cmetadata->>'source_id', cmetadata->>'content_hash' "
+    "FROM langchain_pg_embedding "
+    "WHERE cmetadata->>'source_type' = ANY(:types) "
+    "AND collection_id = ("
+    "SELECT uuid FROM langchain_pg_collection WHERE name = :collection"
+    ")"
+)
+
+DELETE_BY_SOURCE_IDS = text(
+    "DELETE FROM langchain_pg_embedding "
+    "WHERE cmetadata->>'source_id' = ANY(:ids) "
+    "AND cmetadata->>'source_type' = ANY(:types) "
+    "AND collection_id = ("
+    "SELECT uuid FROM langchain_pg_collection WHERE name = :collection"
+    ")"
+)
+
+
+def knowledge_hashes() -> dict:
+    """{source_id: content_hash} for every website entry currently indexed."""
+    get_vectorstore()  # creates the tables on a fresh database
+    with get_engine().connect() as connection:
+        rows = connection.execute(
+            SELECT_KNOWLEDGE_HASHES,
+            {"types": list(KNOWLEDGE_TYPES), "collection": COLLECTION_NAME},
+        )
+        return {source_id: content_hash for source_id, content_hash in rows}
+
+
+def delete_knowledge(source_ids) -> int:
+    """Remove every chunk of the given website entries. Returns the count.
+
+    Scoped to website source types so a bad id can never reach a CV chunk.
+    """
+    source_ids = list(source_ids)
+    if not source_ids:
+        return 0
+    with get_engine().begin() as connection:
+        result = connection.execute(
+            DELETE_BY_SOURCE_IDS,
+            {"ids": source_ids, "types": list(KNOWLEDGE_TYPES), "collection": COLLECTION_NAME},
+        )
+    return result.rowcount

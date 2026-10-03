@@ -1,40 +1,73 @@
-"""Rate limits specific to general mode.
+"""Rate limits per chat mode.
 
-Grounded mode is the app's purpose and is cheap: short, bounded answers over a
-fixed corpus. General mode is an open LLM endpoint on a free tier with a hard
-DAILY request ceiling, which makes it the one surface where a single visitor
-running a loop -- or simply three readers arriving the same afternoon -- can
-exhaust the quota for everyone else, during exactly the hour it matters.
+Every mode spends someone's free tier. General mode runs on Gemini, which caps
+REQUESTS PER DAY. Grounded mode (the app) and site mode (the portfolio widget)
+both run on Groq, which caps OUTPUT TOKENS PER MINUTE for the whole account.
+The anon rate on the view covers everyone; the classes here add limits that
+only make sense for particular modes.
 
-So the limit lives here rather than on the default `anon` scope: it applies to
-general-mode requests only, and leaves grounded chat on the looser rate.
+Two shapes of limit:
+- per visitor, so one reader running a loop cannot use everyone's share;
+- shared by everyone, so no way of looking like many visitors -- a spoofed
+  X-Forwarded-For, a botnet -- can exhaust the provider's quota.
 """
 from rest_framework.throttling import SimpleRateThrottle
 
 
-class GeneralChatRateThrottle(SimpleRateThrottle):
-    """Throttles general-mode chat per client, and nothing else.
+def _mode(request):
+    # request.data is already parsed by the time throttles run. A missing mode
+    # is grounded, matching the serializer's default.
+    try:
+        return (request.data or {}).get("mode") or "grounded"
+    except Exception:
+        # An unparseable body is not a throttle's problem; the serializer
+        # will reject it a moment later with a 400.
+        return None
+
+
+class ModeThrottle(SimpleRateThrottle):
+    """Applies only to requests in `modes`, per visitor or shared by all.
 
     Returning None from get_cache_key is DRF's documented way of saying "this
-    throttle does not apply to this request", which is how grounded traffic
-    passes through untouched.
+    throttle does not apply to this request".
     """
 
-    scope = "general_chat"
+    modes = frozenset()
+    shared = False
 
     def get_cache_key(self, request, view):
-        # request.data is already parsed by the time throttles run.
-        try:
-            mode = (request.data or {}).get("mode")
-        except Exception:
-            # An unparseable body is not this class's problem; the serializer
-            # will reject it a moment later with a 400.
+        if _mode(request) not in self.modes:
             return None
+        ident = "all" if self.shared else self.get_ident(request)
+        return self.cache_format % {"scope": self.scope, "ident": ident}
 
-        if mode != "general":
-            return None
 
-        return self.cache_format % {
-            "scope": self.scope,
-            "ident": self.get_ident(request),
-        }
+class GeneralChatRateThrottle(ModeThrottle):
+    scope = "general_chat"
+    modes = frozenset({"general"})
+
+
+class GeneralChatDailyThrottle(ModeThrottle):
+    """One ceiling on general-mode requests across every visitor, kept under
+    Gemini's daily quota."""
+
+    scope = "general_chat_daily"
+    modes = frozenset({"general"})
+    shared = True
+
+
+class SiteChatRateThrottle(ModeThrottle):
+    """Per-visitor limit for the portfolio widget, which sits on every page of
+    a public site."""
+
+    scope = "site_chat"
+    modes = frozenset({"site"})
+
+
+class GroqDailyThrottle(ModeThrottle):
+    """One ceiling across the two Groq-backed modes, so the widget cannot
+    starve the app of answers or the other way round."""
+
+    scope = "groq_daily"
+    modes = frozenset({"grounded", "site"})
+    shared = True

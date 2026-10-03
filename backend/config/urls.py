@@ -18,6 +18,8 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import path, include
 
+from documents.c_views import KnowledgeSyncView
+
 
 def healthz(_request):
     """Liveness probe for Render's health check and the Docker HEALTHCHECK.
@@ -45,5 +47,6 @@ urlpatterns = [
     path('api/healthz', healthz, name='api-healthz-noslash'),
     path('admin/', admin.site.urls),
     path('api/documents/', include('documents.d_urls')),
-    path('api/chat/', include('chat.c_urls'))
+    path('api/chat/', include('chat.c_urls')),
+    path('api/knowledge/sync/', KnowledgeSyncView.as_view(), name='knowledge-sync'),
 ]

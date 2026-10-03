@@ -3,138 +3,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AppHeader from "./AppHeader";
 import Composer from "./Composer";
+import EmptyHero from "./EmptyHero";
 import MessageRow from "./MessageRow";
 import Sidebar from "./Sidebar";
 import SourcesPanel from "./SourcesPanel";
 import VoiceScreen from "./VoiceScreen";
 import { ArrowDownIcon } from "./icons";
+import { dayLabel, loadChats, makeChat, saveChats } from "./chatStore";
+import { downloadConversation } from "./exportChat";
+import { startersFor } from "./starters";
+import { useBackendStatus } from "./useBackendStatus";
+import { useTheme } from "./useTheme";
 import { useXiaState } from "./xia/useXiaState";
 import { streamChat } from "./xia/chatStream";
 import { createSpeaker } from "./xia/tts";
 import { speakableText } from "./xia/speakable";
 import { createListener, probeListener } from "./xia/stt";
-import { THEME_TINT } from "./themeTint";
 
-const HISTORY_KEY = "aixia-chat-history";
-// v2: the previous key was written on first paint even when the reader had
-// never touched the toggle, so it recorded the old dark default as though it
-// were a preference. Those values are indistinguishable from real choices,
-// so the key is retired rather than migrated.
-const THEME_KEY = "aixia-theme-v2";
 const VOICE_KEY = "aixia-voice";
 const EMPTY_MESSAGES = [];
-const HEALTH_URL = "/api/healthz";
-const HEALTH_INTERVAL_MS = 60_000;
-
-// Drawn from, not shown whole — each conversation opens with its own three, so
-// the empty hero is not the same wall of text every time you hit New.
-const STARTER_POOL = [
-  "What is Vince's machine learning experience?",
-  "Tell me about his embedded systems background.",
-  "What projects has Vince worked on?",
-  "What certifications does he hold?",
-  "Where did he study, and how did he do?",
-  "What does he use day to day — languages, frameworks, tools?",
-  "Walk me through his most technically ambitious project.",
-  "What is his current role, and what does he do there?",
-  "Has he worked with computer vision?",
-  "What is he trying to learn next?",
-  "How does he approach testing and documentation?",
-  "What would make him a good fit for an AI team?",
-];
-const STARTER_COUNT = 3;
-
-// General mode has its own openers: the grounded pool is entirely about Vince,
-// which is the one subject this mode declines.
-const GENERAL_STARTER_POOL = [
-  "Explain vector embeddings in plain English.",
-  "Help me draft a short follow-up email after an interview.",
-  "What's the difference between SQL and NoSQL?",
-  "Walk me through how HTTPS actually works.",
-  "Give me three ideas for a weekend project in Python.",
-  "Summarise the tradeoffs between REST and GraphQL.",
-  "How should I structure a technical README?",
-  "What makes a good unit test?",
-  "Explain Big-O notation with a real example.",
-  "What questions should I ask at the end of an interview?",
-  "Explain Docker to someone who has never used it.",
-  "How do I choose between a monolith and microservices?",
-];
-
-// FNV-1a. Any stable string-to-int would do; the point is that the same chat
-// always draws the same three prompts — so they do not reshuffle under the
-// cursor on re-render, or change between the server's HTML and the client's.
-function hashString(value) {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
-function startersFor(chatId, pool = STARTER_POOL) {
-  const remaining = pool.slice();
-  const picked = [];
-  let seed = hashString(chatId || "aixia");
-  while (picked.length < STARTER_COUNT && remaining.length) {
-    seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
-    picked.push(remaining.splice(seed % remaining.length, 1)[0]);
-  }
-  return picked;
-}
-
-function createChatId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
-    const bytes = new Uint8Array(16);
-    crypto.getRandomValues(bytes);
-    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  }
-  return `chat-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function makeChat() {
-  return { id: createChatId(), title: "New conversation", titleSetByUser: false, messages: [], sessionId: null, mode: "grounded", updatedAt: Date.now() };
-}
-
-function loadChats() {
-  if (typeof window === "undefined") return [];
-  try {
-    const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-    return Array.isArray(stored) && stored.length ? stored : [makeChat()];
-  } catch {
-    return [makeChat()];
-  }
-}
-
-function readStored(key, fallback) {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored === null ? fallback : stored;
-  } catch {
-    return fallback;
-  }
-}
-
-// The bootstrap in layout.js sets this correctly before first paint; this
-// keeps it right when the theme is toggled afterwards.
-function syncBrowserChrome(theme) {
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_TINT[theme] || THEME_TINT.light);
-}
-
-function dayLabel(timestamp) {
-  const date = new Date(timestamp);
-  const today = new Date();
-  const startOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const dayMs = 86_400_000;
-  const diff = Math.round((startOf(today) - startOf(date)) / dayMs);
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  return date.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
-}
 
 export default function ChatWindow() {
   const [chats, setChats] = useState([]);
@@ -142,17 +29,7 @@ export default function ChatWindow() {
   const [input, setInput] = useState("");
   const [loadingChats, setLoadingChats] = useState(new Set());
   const [railCollapsed, setRailCollapsed] = useState(null);
-  // Seeded from the attribute the bootstrap script in layout.js set before
-  // first paint. Deriving it here rather than in an effect matters: an effect
-  // would land a second render that the theme effect below cannot tell apart
-  // from someone hitting the toggle, so it would crossfade and persist on
-  // every load. `document` is absent on the server, which yields the same
-  // "light" the server rendered.
-  const [theme, setTheme] = useState(() => (
-    typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark"
-      ? "dark"
-      : "light"
-  ));
+  const [, setTheme] = useTheme();
   const [voiceOn, setVoiceOn] = useState(() => (
     typeof document !== "undefined" && document.documentElement.getAttribute("data-voice") === "on"
   ));
@@ -163,7 +40,7 @@ export default function ChatWindow() {
   const [interactionMode, setInteractionMode] = useState("chat");
   const [listening, setListening] = useState(false);
   const [micError, setMicError] = useState(null);
-  const [status, setStatus] = useState("connecting");
+  const [status, setStatus] = useBackendStatus();
   // The panel keeps its sources after closing. Clearing them would swap the
   // cards for the empty state mid-slide-out, and the viewer would watch the
   // answer's own sources disappear on the way off screen.
@@ -229,58 +106,8 @@ export default function ChatWindow() {
   }, []);
 
   useEffect(() => {
-    if (!chats.length) return;
-    try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(chats));
-    } catch {
-      // Storage can be disabled or full; the active UI remains usable in memory.
-    }
+    if (chats.length) saveChats(chats);
   }, [chats]);
-
-  // Skips the first run: the theme is already correct at first paint (the
-  // bootstrap script in layout.js sets it), and crossfading into it would look
-  // like the page loading wrong and then correcting itself.
-  const themeSettled = useRef(false);
-  useEffect(() => {
-    const root = document.documentElement;
-
-    if (themeSettled.current) {
-      // Flip the theme with a centre-out circle reveal (View Transitions API,
-      // see ::view-transition in globals.css). `.theme-transition` suppresses
-      // every element's own transition so the new snapshot is the finished
-      // theme, not a mid-fade -- the circle is the only motion. Browsers without
-      // the API (or under reduced-motion) just snap.
-      const apply = () => {
-        root.classList.add("theme-transition");
-        root.setAttribute("data-theme", theme);
-        syncBrowserChrome(theme);
-      };
-      const settle = () => root.classList.remove("theme-transition");
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-      let done;
-      if (document.startViewTransition && !reduce) {
-        document.startViewTransition(apply).finished.finally(settle);
-      } else {
-        apply();
-        done = setTimeout(settle, 60);
-      }
-      try {
-        localStorage.setItem(THEME_KEY, theme);
-      } catch {
-        // Storage can be disabled; the theme still applies for this session.
-      }
-      return () => clearTimeout(done);
-    }
-
-    // Adoption pass, not a choice: apply what is already on screen and write
-    // NOTHING. Persisting here is what pinned every first-time visitor to
-    // whatever the default happened to be on the day they first loaded.
-    themeSettled.current = true;
-    root.setAttribute("data-theme", theme);
-    syncBrowserChrome(theme);
-  }, [theme]);
-
 
   const voiceSettled = useRef(false);
   useEffect(() => {
@@ -380,25 +207,6 @@ export default function ChatWindow() {
     const clear = setTimeout(() => setMicError(null), 6000);
     return () => clearTimeout(clear);
   }, [micError]);
-
-  // The status pill reports the backend, not the frontend, so it has to ask.
-  // Render's free tier sleeps the service, and the first request after a sleep
-  // takes ~30s to cold-start — the pill sitting on "connecting" through that
-  // wait is the honest reading, not a stall.
-  useEffect(() => {
-    let cancelled = false;
-    async function ping() {
-      try {
-        const response = await fetch(HEALTH_URL, { cache: "no-store" });
-        if (!cancelled) setStatus(response.ok ? "online" : "offline");
-      } catch {
-        if (!cancelled) setStatus("offline");
-      }
-    }
-    ping();
-    const interval = setInterval(ping, HEALTH_INTERVAL_MS);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -631,28 +439,7 @@ export default function ChatWindow() {
   }
 
   function exportConversation() {
-    if (!activeChat?.messages.length) return;
-    const lines = [`# ${activeChat.title}`, "", `_Exported ${new Date().toLocaleString()}_`, ""];
-    for (const message of activeChat.messages) {
-      if (message.role === "user") lines.push(`## You`, "", message.content, "");
-      else lines.push(`## AIxia`, "", message.content, "");
-      if (message.sources?.length) {
-        lines.push("**Sources**", "");
-        message.sources.forEach((source, index) => {
-          lines.push(`${index + 1}. ${source.original_filename}${Number.isInteger(source.page) ? ` · p.${source.page + 1}` : ""}`);
-        });
-        lines.push("");
-      }
-    }
-    const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${activeChat.title.replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "aixia-conversation"}.md`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    downloadConversation(activeChat);
   }
 
   useEffect(() => {
@@ -662,10 +449,7 @@ export default function ChatWindow() {
   const showSources = useCallback((sources, index) => setSourcesView({ open: true, sources, index }), []);
   const closeSources = useCallback(() => setSourcesView((view) => ({ ...view, open: false })), []);
 
-  const starters = useMemo(
-    () => startersFor(activeChat?.id, mode === "general" ? GENERAL_STARTER_POOL : STARTER_POOL),
-    [activeChat?.id, mode],
-  );
+  const starters = useMemo(() => startersFor(activeChat?.id, mode), [activeChat?.id, mode]);
 
   // A divider is emitted only where the day actually changes. Threads saved
   // before messages carried timestamps have none, and get no divider rather
@@ -751,27 +535,7 @@ export default function ChatWindow() {
               <div className="chat-scroll" ref={scrollRef} onScroll={handleScroll}>
                 <div className="chat-thread">
                   {messages.length === 0 ? (
-                    <div className="empty-hero">
-                      {mode === "general" ? (
-                        <>
-                          <h1>Ask me <em>anything</em></h1>
-                          <p>General questions, explanations, drafting, code. This mode isn&apos;t grounded in any documents, so there are no sources to check — for anything about Vince, switch to <strong>About Vince</strong>.</p>
-                        </>
-                      ) : (
-                        <>
-                          <h1>Ask me anything about <em>Vince</em></h1>
-                          <p>I answer from his CV, projects and notes — grounded in the documents, with the sources you can check. He&apos;s Sean Vincent Vien V. Viñas on paper, but goes by Vince.</p>
-                        </>
-                      )}
-                      <div className="starter-grid">
-                        {starters.map((starter, index) => (
-                          <button key={starter} type="button" className="starter-card" onClick={() => sendMessage(starter)}>
-                            <span className="starter-index">0{index + 1}</span>
-                            {starter}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    <EmptyHero mode={mode} starters={starters} onPick={sendMessage} />
                   ) : (
                     rows.map(({ message, index, divider }) => (
                       <ThreadRow key={`${message.role}-${index}`} divider={divider}>

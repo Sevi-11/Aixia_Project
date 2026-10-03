@@ -17,7 +17,7 @@ def load_document(data: bytes, source_name: str = ''):
     raises NotImplementedError on every remote backend. Bytes is the one input
     that works identically for local disk and S3.
 
-    The upload view caps files at 20 MB, so holding a whole document in memory
+    The upload view caps files at 4 MB, so holding a whole document in memory
     is bounded.
     """
     with pymupdf.open(stream=data, filetype='pdf') as pdf:
@@ -33,3 +33,32 @@ def load_document(data: bytes, source_name: str = ''):
             )
             for page in pdf
         ]
+
+
+def load_entries(entries):
+    """Turn cleaned knowledge entries (see documents/f_knowledge.py) into
+    Documents.
+
+    The title leads the text so every chunk the splitter cuts from a long entry
+    still says what it belongs to. Everything the site widget needs to place an
+    answer -- which page, section and item it describes, where to link -- rides
+    along as metadata, and survives splitting because the splitter copies
+    metadata onto each chunk.
+    """
+    documents = []
+    for entry in entries:
+        metadata = {
+            'source_type': entry['type'],
+            'source_id': entry['id'],
+            'content_hash': entry['hash'],
+            'page': entry['page'],
+            'section': entry['section'],
+            'title': entry['title'],
+            'url': entry['url'],
+        }
+        if entry.get('item'):
+            metadata['item'] = entry['item']
+        if entry.get('actions'):
+            metadata['actions'] = entry['actions']
+        documents.append(Document(page_content=f"{entry['title']}\n\n{entry['text']}", metadata=metadata))
+    return documents

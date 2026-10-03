@@ -5,7 +5,15 @@ import logging
 from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.output_parsers import StrOutputParser
-from .e_prompts import context_prompt, general_prompt, suggestions_prompt, title_prompt
+from .d_vectorstore import DOCUMENTS_ONLY
+from .e_prompts import (
+    context_prompt,
+    general_prompt,
+    site_prompt,
+    site_suggestions_prompt,
+    suggestions_prompt,
+    title_prompt,
+)
 from .g_stream_filter import strip_thinking_stream
 
 logger = logging.getLogger(__name__)
@@ -98,7 +106,9 @@ def format_history(messages):
     return '\n'.join(lines) + '\n'
 
 def _retrieve_and_build_chain_input(vectorstore, question: str, history: list, k: int):
-    retrieved_docs = vectorstore.similarity_search(question, k=k or RETRIEVAL_K)
+    # Uploaded documents only. Website knowledge shares the index but belongs
+    # to site mode; "About Vince" answers from his documents, as it always has.
+    retrieved_docs = vectorstore.similarity_search(question, k=k or RETRIEVAL_K, filter=DOCUMENTS_ONLY)
     context = format_docs(retrieved_docs)
     history_text = format_history(history or [])
     chain_input = {"context": context, "question": question, "history": history_text}
@@ -134,16 +144,22 @@ def answer_question_stream(vectorstore, question: str, history: list, k: int = N
 
     return retrieved_docs, visible_stream
 
-def generate_followup_suggestions(question: str, answer: str, history: list, llm=None, max_suggestions: int = 3) -> list:
+def generate_followup_suggestions(question: str, answer: str, history: list, llm=None, max_suggestions: int = 3,
+                                  prompt=None, extra_input=None) -> list:
     """Best-effort follow-up questions. Never raises — returns [] on any
     model or parsing failure so it can never break the main chat response.
+
+    `prompt` and `extra_input` let site mode reuse this with its own prompt,
+    which also needs to know what is on screen.
     """
     if not answer:
         return []
     llm = llm or get_llm(SUGGESTION_MAX_TOKENS, EXTRAS_TEMPERATURE)
-    chain = suggestions_prompt | llm | StrOutputParser()
+    chain = (prompt or suggestions_prompt) | llm | StrOutputParser()
+    chain_input = {"question": question, "answer": answer, "history": format_history(history or [])}
+    chain_input.update(extra_input or {})
     try:
-        raw = chain.invoke({"question": question, "answer": answer, "history": format_history(history or [])})
+        raw = chain.invoke(chain_input)
     except Exception:
         logger.exception("Follow-up suggestion generation failed")
         return []
@@ -279,3 +295,143 @@ def answer_general_stream(question: str, history: list, llm=None):
     # Gemini does not emit <think> blocks, but the filter is cheap and this
     # stays correct if GENERAL_MODEL is pointed at a reasoning model later.
     return strip_thinking_stream(chain.stream(chain_input))
+
+
+# ---------------------------------------------------------------------------
+# Site mode
+#
+# The portfolio widget. Retrieval is anchored on what the visitor has on
+# screen: the item in view (a project card or blog post), then the rest of its
+# section, which includes the how-to topics written for that section, then
+# background from his documents. The prompt (site_prompt) keeps the answer to
+# that scope.
+# ---------------------------------------------------------------------------
+
+# Answers render in a small panel, and every token comes out of the same Groq
+# per-minute budget grounded mode uses.
+SITE_MAX_TOKENS = int(os.getenv("SITE_MAX_TOKENS", "450"))
+SITE_ITEM_K = 2
+SITE_SECTION_K = 3
+SITE_BACKGROUND_K = 3
+SITE_MAX_DOCS = 6
+
+SECTION_TITLES = {
+    "home": "Home (introduction)",
+    "projects": "Projects",
+    "about": "About",
+    "contact": "Contact",
+    "blog": "Blog",
+}
+
+
+def _on_screen_filter(context):
+    # "any" covers how-to topics that apply everywhere, such as the menu.
+    return {"$and": [
+        {"page": {"$in": [context["page"], "any"]}},
+        {"section": {"$in": [context["section"], "any"]}},
+    ]}
+
+
+def retrieve_for_site(vectorstore, question: str, context: dict):
+    """Returns (docs, on_screen_ids). on_screen_ids are the source_ids of the
+    chunks that describe what the visitor is looking at."""
+    # Embedded once and reused: each similarity_search would embed the
+    # question again, and embeddings are rate limited per request.
+    vector = vectorstore.embeddings.embed_query(question)
+
+    on_screen = []
+    if context.get("item"):
+        on_screen += vectorstore.similarity_search_by_vector(
+            vector, k=SITE_ITEM_K,
+            filter={"$and": [{"page": context["page"]}, {"item": context["item"]}]},
+        )
+    on_screen += vectorstore.similarity_search_by_vector(vector, k=SITE_SECTION_K, filter=_on_screen_filter(context))
+    background = vectorstore.similarity_search_by_vector(vector, k=SITE_BACKGROUND_K, filter=DOCUMENTS_ONLY)
+
+    docs, seen = [], set()
+    for doc in on_screen + background:
+        key = (doc.metadata.get("source_id") or doc.metadata.get("document_id"), doc.page_content)
+        if key in seen:
+            continue
+        seen.add(key)
+        docs.append(doc)
+    on_screen_ids = {doc.metadata.get("source_id") for doc in on_screen if doc.metadata.get("source_type") != "help"}
+    return docs[:SITE_MAX_DOCS], on_screen_ids
+
+
+def describe_screen(context: dict, docs) -> str:
+    """The "On screen" line of the prompt, built from the index rather than
+    from anything the browser sent besides the ids."""
+    page = "the blog" if context["page"] == "blog" else "the home page"
+    section = SECTION_TITLES.get(context["section"], context["section"].replace("-", " ").title())
+    line = f"The visitor is on {page}, in the {section} section."
+    item = context.get("item")
+    if item:
+        title = next((d.metadata.get("title") for d in docs if d.metadata.get("item") == item), None)
+        if title:
+            kind = "blog post" if context["page"] == "blog" else "project card"
+            line += f' The {kind} in view is "{title}".'
+    return line
+
+
+def _site_label(doc, on_screen_ids):
+    if doc.metadata.get("source_type") == "help":
+        return f"how-to: {doc.metadata.get('title')}"
+    if doc.metadata.get("document_id") is not None:
+        return "CV"
+    where = doc.metadata.get("title") or "site"
+    return f"on screen: {where}" if doc.metadata.get("source_id") in on_screen_ids else f"site: {where}"
+
+
+def format_site_docs(docs, on_screen_ids):
+    # Same numbering contract as format_docs: [n] is docs[n-1].
+    return "\n\n".join(
+        f"[{i}] ({_site_label(doc, on_screen_ids)}) {doc.page_content}"
+        for i, doc in enumerate(docs, start=1)
+    )
+
+
+def answer_site_stream(vectorstore, question: str, history: list, context: dict, llm=None):
+    """Returns (docs, visible token stream, screen description)."""
+    llm = llm or get_llm(SITE_MAX_TOKENS)
+    docs, on_screen_ids = retrieve_for_site(vectorstore, question, context)
+    screen = describe_screen(context, docs)
+    chain_input = {
+        "screen": screen,
+        "context": format_site_docs(docs, on_screen_ids),
+        "question": question,
+        "history": format_history(history or []),
+    }
+    chain = site_prompt | llm | StrOutputParser()
+    return docs, strip_thinking_stream(chain.stream(chain_input)), screen
+
+
+def generate_site_suggestions(question: str, answer: str, history: list, screen: str, llm=None) -> list:
+    return generate_followup_suggestions(
+        question, answer, history, llm=llm, max_suggestions=2,
+        prompt=site_suggestions_prompt, extra_input={"screen": screen},
+    )
+
+
+CITATION_RE = re.compile(r"\[(\d+)\]")
+
+
+def actions_for_answer(answer: str, docs) -> list:
+    """"Show me" buttons for the how-to topics the answer actually cited.
+
+    The actions come from the help file in the portfolio repo, stored as chunk
+    metadata at sync time. The model only decides which topic it used, by
+    citing it; it never writes an action itself.
+    """
+    groups, seen = [], set()
+    for number in CITATION_RE.findall(answer or ""):
+        index = int(number) - 1
+        if not 0 <= index < len(docs):
+            continue
+        meta = docs[index].metadata
+        source_id = meta.get("source_id")
+        if meta.get("source_type") != "help" or not meta.get("actions") or source_id in seen:
+            continue
+        seen.add(source_id)
+        groups.append({"label": meta.get("title"), "actions": meta["actions"]})
+    return groups

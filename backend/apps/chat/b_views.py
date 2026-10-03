@@ -10,15 +10,22 @@ from django.http import StreamingHttpResponse
 
 from .models import ChatSession, ChatMessage
 from .a_serializers import ChatRequestSerializer, ChatMessageSerializer
-from .d_throttles import GeneralChatRateThrottle
+from .d_throttles import (
+    GeneralChatDailyThrottle,
+    GeneralChatRateThrottle,
+    GroqDailyThrottle,
+    SiteChatRateThrottle,
+)
 
-from rag.c_embeddings import get_embeddings
-from rag.d_vectorstore import load_vectorstore
+from rag.d_vectorstore import get_vectorstore
 from rag.f_chains import (
+    actions_for_answer,
     answer_question,
     answer_question_stream,
     answer_general_stream,
+    answer_site_stream,
     generate_followup_suggestions,
+    generate_site_suggestions,
     generate_title,
     get_general_llm,
 )
@@ -28,6 +35,9 @@ logger = logging.getLogger(__name__)
 MAX_HISTORY_MESSAGES = 20
 SESSION_SALT = 'aixia-chat-session'
 SESSION_TOKEN_MAX_AGE = 60 * 60 * 24 * 30
+# Shown in place of the exception text. Provider errors can carry request
+# details, quota names and the like -- worth logging, not worth showing.
+STREAM_ERROR_MESSAGE = "Something went wrong while generating that answer. Please try again."
 
 
 def _resolve_session(session_id, session_token):
@@ -64,8 +74,13 @@ def _serialize_sources(sources):
             "document_id": s.metadata.get("document_id"),
             "original_filename": s.metadata.get("original_filename"),
             # 0-based, straight off the PDF loader; the UI adds one before it
-            # shows a page number to a reader.
+            # shows a page number to a reader. Website chunks use "page" for
+            # which site page they describe ("home", "blog") instead.
             "page": s.metadata.get("page"),
+            # Website chunks only; the portfolio widget links citations here.
+            "source_type": s.metadata.get("source_type") or ("cv" if s.metadata.get("document_id") is not None else None),
+            "title": s.metadata.get("title"),
+            "url": s.metadata.get("url"),
         }
         for s in sources
     ]
@@ -99,9 +114,7 @@ class ChatView(APIView):
 
         ChatMessage.objects.create(session=session, role='user', content=question)
 
-        embedder = get_embeddings()
-        vectorstore = load_vectorstore(embedder)
-        answer, sources = answer_question(vectorstore, question, history=prior_messages)
+        answer, sources = answer_question(get_vectorstore(), question, history=prior_messages)
 
         ChatMessage.objects.create(session = session, role ='assistant', content = answer)
 
@@ -114,9 +127,15 @@ class ChatView(APIView):
 
 
 class ChatStreamView(APIView):
-    # Both apply. GeneralChatRateThrottle excuses itself for grounded requests,
-    # so grounded chat sees only the looser anon rate.
-    throttle_classes = [AnonRateThrottle, GeneralChatRateThrottle]
+    # All apply; each mode throttle excuses itself for the modes it is not
+    # about. See d_throttles.py.
+    throttle_classes = [
+        AnonRateThrottle,
+        GeneralChatRateThrottle,
+        GeneralChatDailyThrottle,
+        SiteChatRateThrottle,
+        GroqDailyThrottle,
+    ]
 
     def post(self, request):
         serializer = ChatRequestSerializer(data=request.data)
@@ -127,6 +146,7 @@ class ChatStreamView(APIView):
         question = serializer.validated_data.get('question', '')
         regenerate = serializer.validated_data.get('regenerate', False)
         mode = serializer.validated_data.get('mode', 'grounded')
+        site_context = serializer.validated_data.get('context')
 
         session, error_response = _resolve_session(session_id, session_token)
         if error_response:
@@ -164,10 +184,12 @@ class ChatStreamView(APIView):
             # client needs no branch of its own.
             retrieved_docs = []
             token_stream = answer_general_stream(question, history=prior_messages)
+        elif mode == 'site':
+            retrieved_docs, token_stream, screen = answer_site_stream(
+                get_vectorstore(), question, prior_messages, site_context,
+            )
         else:
-            embedder = get_embeddings()
-            vectorstore = load_vectorstore(embedder)
-            retrieved_docs, token_stream = answer_question_stream(vectorstore, question, history=prior_messages)
+            retrieved_docs, token_stream = answer_question_stream(get_vectorstore(), question, history=prior_messages)
 
         def event_stream():
             yield json.dumps({"type": "sources", "sources": _serialize_sources(retrieved_docs)}) + "\n"
@@ -177,8 +199,9 @@ class ChatStreamView(APIView):
                 for token in token_stream:
                     answer_parts.append(token)
                     yield json.dumps({"type": "token", "content": token}) + "\n"
-            except Exception as exc:
-                yield json.dumps({"type": "error", "message": str(exc)}) + "\n"
+            except Exception:
+                logger.exception("Answer stream failed (mode=%s, session=%s)", mode, session.id)
+                yield json.dumps({"type": "error", "message": STREAM_ERROR_MESSAGE}) + "\n"
             finally:
                 full_answer = "".join(answer_parts)
                 if full_answer:
@@ -188,10 +211,20 @@ class ChatStreamView(APIView):
             # for questions about Vince's background, which is precisely what
             # this mode does not answer. Offering them here would invite the
             # reader into the one thing the prompt has just declined to do.
+            # Site mode gets "Show me" buttons for the how-to topics the answer
+            # cited. They come from the portfolio's help file, never the model.
+            if mode == 'site' and full_answer:
+                actions = actions_for_answer(full_answer, retrieved_docs)
+                if actions:
+                    yield json.dumps({"type": "actions", "actions": actions}) + "\n"
+
             suggestions = []
             if full_answer and mode != 'general':
                 try:
-                    suggestions = generate_followup_suggestions(question, full_answer, prior_messages)
+                    if mode == 'site':
+                        suggestions = generate_site_suggestions(question, full_answer, prior_messages, screen)
+                    else:
+                        suggestions = generate_followup_suggestions(question, full_answer, prior_messages)
                 except Exception:
                     logger.exception("Follow-up suggestion generation raised unexpectedly")
 
@@ -201,7 +234,9 @@ class ChatStreamView(APIView):
             # truncated question straight away and swaps this summary in when
             # it lands, so a slow or failed title costs nothing -- the answer
             # has finished streaming long before this runs.
-            if is_first_turn and full_answer:
+            # The widget has no conversation list to title, so site mode
+            # skips this and saves the call.
+            if is_first_turn and full_answer and mode != 'site':
                 # Titled by whichever provider owns this mode, so a general
                 # conversation never spends the grounded per-minute budget.
                 title = generate_title(

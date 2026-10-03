@@ -29,3 +29,7 @@ deploy.env
 # rotated. Ignored so it cannot come back. The secrets in it are dead; the
 # file is kept out of the repo regardless.
 Credentials.txt
+
+# Retired Chroma index (vectors now live in pgvector). Its SQLite file holds
+# the full text of every ingested document, so it must not be committed.
+backend/data/

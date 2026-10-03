@@ -68,10 +68,12 @@ def test_prompt_is_proportionate_to_the_answer_budget_it_governs():
     # Measured: the old policy rendered to 4,499 characters (~1,125 tokens at
     # roughly four characters per token) to govern a 700-token answer budget.
     # The replacement measures ~2,750 (~690) after the structure rules had to
-    # be restated as requirements. The ceiling is a ratchet against the old
-    # formatting menu creeping back, not a tight fit -- but the headroom is
-    # thin now, so earn any further additions.
-    assert len(_rendered()) / 4 < 800
+    # be restated as requirements. The CONVERSATION block (e32e04c, so that a
+    # greeting no longer draws the grounding refusal) took it to ~3,750
+    # (~940). The ceiling is a ratchet against the old formatting menu creeping
+    # back, not a tight fit -- it still sits below the old policy's ~1,125 --
+    # but the headroom is thin now, so earn any further additions.
+    assert len(_rendered()) / 4 < 1000
 
 
 def test_suggestions_prompt_uses_the_professional_name():
